@@ -14,12 +14,12 @@ def sms_main():
     except IOError:
         print "Problem opening file."
         quit()
-    
+
     #allow use of either the -d option or sms_debug=False
     global sms_debug, test_run
     sms_debug = args.sms_debug if args.sms_debug else sms_debug
     test_run = args.test_run if args.test_run else test_run
-    
+
     #get the texts into memory
     texts = []
     for file in args.infiles:
@@ -50,15 +50,15 @@ def sms_main():
             new_texts = readTextsFromXML( file )
         texts += new_texts
         print "finished in {0} seconds, {1} messages read".format( (time.time()-starttime), len(new_texts) )
-    
+
 
     print "sorting all {0} texts by date".format( len(texts) )
     texts = sorted(texts, key=lambda text: text.date)
-    
+
     if args.limit > 0:
         print "saving only the last {0} messages".format( args.limit )
         texts = texts[ (-args.limit) : ]
-    
+
     if os.path.splitext(args.outfile)[1] == '.db':
         print "Saving changes into Android DB, "+str(args.outfile)
         exportAndroidSQL(texts, args.outfile)
@@ -106,7 +106,7 @@ def readTextsFromIOS6(file):
         if sms_debug:
             print txt
     return texts
-    
+
 def readTextsFromGV(file):
     conn = sqlite3.connect(file)
     c = conn.cursor()
@@ -146,7 +146,7 @@ def readTextsFromIOS5(file):
             contactLookup[lookup_num] = i
         txt.cid = contactLookup[lookup_num]
         texts.append(txt)
-        
+
         i+=1
     return texts
 
@@ -159,7 +159,7 @@ def readTextsFromXML(file):
                 (sms.attributes['type'].value==2), sms.attributes['body'].value)
         texts.append(txt)
     return texts
-    
+
 def readTextsFromCSV(file):
     inreader = csv.reader( file )
 
@@ -175,7 +175,7 @@ def readTextsFromCSV(file):
     if (-1) in [phNumberIndex, dateIndex, typeIndex, bodyIndex, cidIndex]:
         print "CSV file missing needed columns. has: "+ str(firstrow)
         quit()
-    
+
     texts = []
     i=0
     for row in inreader:
@@ -206,7 +206,7 @@ def readTextsFromAndroid(file):
         if sms_debug:
             print txt
     return texts
-    
+
 def getDbTableNames(file):
     cur = sqlite3.connect(file).cursor()
     names = cur.execute("SELECT name FROM sqlite_master WHERE type='table'; ")
@@ -232,13 +232,13 @@ def exportAndroidSQL(texts, outfile):
     lastSpeed=0
     lastCheckedSpeed=0
     starttime = time.time()
-    
+
     for txt in texts:
         if sms_debug and i > 80:
             break #sms_debug breaks early
-        
+
         clean_number = cleanNumber(txt.num)
-    
+
         #add a new canonical_addresses lookup entry and thread item if it doesn't exist
         if not clean_number in contactIdFromNumber:
             c.execute( "INSERT INTO canonical_addresses (address) VALUES (?)", [txt.num])
@@ -250,16 +250,16 @@ def exportAndroidSQL(texts, outfile):
         c.execute( "UPDATE threads SET message_count=message_count + 1,snippet=?,'date'=? WHERE recipient_ids=? ", [txt.body,txt.date,contact_id] )
         c.execute( "SELECT _id FROM threads WHERE recipient_ids=? ", [contact_id] )
         thread_id = c.fetchone()[0]
-        
+
         if sms_debug:
             print "thread_id = "+ str(thread_id)
             c.execute( "SELECT * FROM threads WHERE _id=?", [contact_id] )
             print "updated thread: " + str(c.fetchone())
             print "adding entry to message db: " + str([txt.num,txt.date,txt.body,thread_id,txt.incoming+1])
-        
+
         #add message to sms table
         c.execute( "INSERT INTO sms (address,'date',body,thread_id,read,type,seen) VALUES (?,?,?,?,1,?,1)", [txt.num,txt.date,txt.body,thread_id,txt.type])
-    
+
         #print status (with fancy speed calculation)
         recalculate_every = 100
         if i%recalculate_every == 0:
@@ -311,7 +311,7 @@ def exportXML(texts, outfile):
         print doc.toprettyxml(indent="  ", encoding="UTF-8")
     else:
         open(outfile, 'w').write(doc.toprettyxml(indent="  ", encoding="UTF-8"))
-    
+
 
 if __name__ == '__main__':
     sms_main()
