@@ -10,7 +10,7 @@ def sms_main():
     parser.add_argument('--test', '-t', action='store_true', dest='test_run', help='Test run, no saving anything')
     parser.add_argument('--limit', '-l', type=int, default=0, help='limit to the most recent N messages')
     try:
-        args = parser.parse_args()#"-iphone ../sms.db mmssms.db".split())
+        args = parser.parse_args()
     except IOError:
         print "Problem opening file."
         quit()
@@ -54,80 +54,6 @@ def cleanNumber(numb):
     return stripped[-10:]
 
 ## Import functions ##
-
-def readTextsFromIOS6(file):
-    conn = sqlite3.connect(file)
-    c = conn.cursor()
-    i=0
-    texts = []
-    query = c.execute(
-        'SELECT handle.id, message.date, message.is_from_me, message.text, message.handle_id \
-         FROM message \
-         INNER JOIN handle ON message.handle_id = handle.ROWID \
-         ORDER BY message.ROWID ASC;')
-    for row in query:
-        if sms_debug and i > 80:
-            return
-        i+=1
-        txt = Text(row[0],long((row[1] + 978307200)*1000),(row[2]==1),row[3])
-        texts.append(txt)
-        if sms_debug:
-            print txt
-    return texts
-
-def readTextsFromGV(file):
-    conn = sqlite3.connect(file)
-    c = conn.cursor()
-    texts = []
-    query = c.execute(
-        'SELECT TextMessageID, TimeRecordedUTC, Incoming, Text, PhoneNumber \
-        FROM TextMessage \
-        INNER JOIN TextConversation ON TextMessage.TextConversationID = TextConversation.TextConversationID \
-        INNER JOIN Contact ON TextConversation.ContactID = Contact.ContactID \
-        ORDER BY TextMessage.TextMessageID ASC')
-    for row in query:
-        try:
-            ttime = time.mktime(time.strptime(row[1], '%Y-%m-%d %H:%M:%S.%f'))
-        except ValueError:
-            ttime = time.mktime(time.strptime(row[1], '%Y-%m-%d %H:%M:%S'))
-        txt = Text(row[4],long(ttime*1000),row[2]==0,row[3])
-        texts.append(txt)
-    return texts
-
-def readTextsFromIOS5(file):
-    conn = sqlite3.connect(file)
-    c = conn.cursor()
-    i=0
-    texts = []
-    contactLookup = {}
-    query = c.execute(
-        'SELECT is_madrid, madrid_handle, address, date, text, madrid_date_read, flags FROM message;')
-    for row in query:
-        if row[0]:
-            txt = Text( row[1], long((row[3] + 978307200)*1000), (row[5]==0), row[4])
-        else:
-            from_me = row[6] & 0x01
-            txt = Text( row[2], long(row[3]*1000), (from_me==1), row[4])
-
-        lookup_num = str(txt.num)[-10:]
-        if not lookup_num in contactLookup:
-            contactLookup[lookup_num] = i
-        txt.cid = contactLookup[lookup_num]
-        texts.append(txt)
-
-        i+=1
-    return texts
-
-def readTextsFromXML(file):
-    texts = []
-    dom = xml.dom.minidom.parse(file)
-    i = 0
-    for sms in dom.getElementsByTagName("sms"):
-        txt = Text( sms.attributes['address'].value, sms.attributes['date'].value,
-                (sms.attributes['type'].value==2), sms.attributes['body'].value)
-        texts.append(txt)
-    return texts
-
 def readTextsFromCSV(file):
     inreader = csv.reader( file )
 
@@ -250,36 +176,6 @@ def exportAndroidSQL(texts, outfile):
 
     c.close()
     conn.close()
-
-def exportXML(texts, outfile):
-    doc = xml.dom.minidom.Document()
-    doc.encoding = "UTF-8"
-    smses = doc.createElement("smses")
-    smses.setAttribute("count", str(len(texts)))
-    doc.appendChild(smses)
-    i=0
-    for txt in texts:
-        sms = doc.createElement("sms")
-        #toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" readable_date="Sep 27, 2012 10:57:55 AM" contact_name="Kevin Donlon"
-        sms.setAttribute("address", str(txt.num))
-        sms.setAttribute("date", str(txt.date))
-        sms.setAttribute("type", str(txt.incoming+1))
-        sms.setAttribute("body", txt.body)
-        #useless things:
-        sms.setAttribute("read", "1")
-        sms.setAttribute("protocol", "0")
-        sms.setAttribute("status", "-1")
-        sms.setAttribute("locked", "0")
-        smses.appendChild(sms)
-        if (test_run or sms_debug) and i > 50:
-            break
-        i += 1
-    if (test_run or sms_debug):
-        print "xml output: (cut short to 50 items and not written)"
-        print doc.toprettyxml(indent="  ", encoding="UTF-8")
-    else:
-        open(outfile, 'w').write(doc.toprettyxml(indent="  ", encoding="UTF-8"))
-
 
 if __name__ == '__main__':
     sms_main()
