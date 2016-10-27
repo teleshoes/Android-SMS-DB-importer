@@ -1,13 +1,14 @@
 import argparse, os, sys, time, dateutil.parser, sqlite3, csv, xml.dom.minidom
-sms_debug = False
-test_run = False #test = don't save results
+
+VERBOSE = False
+NO_COMMIT = False
 
 def sms_main():
     parser = argparse.ArgumentParser(description='Import texts to android sms database file.')
     parser.add_argument('SMS_CSV_FILE', type=argparse.FileType('r'), help='CSV file of texts to import')
     parser.add_argument('MMSSMS_DB', type=str, help='existing mmssms.db file to fill up')
-    parser.add_argument('--debug', '-d', action='store_true', dest='sms_debug', help='sms_debug run: extra info, limits to 80, no save.')
-    parser.add_argument('--test', '-t', action='store_true', dest='test_run', help='Test run, no saving anything')
+    parser.add_argument('--verbose', '-v', action='store_true', dest='verbose', help='verbose output, slower')
+    parser.add_argument('--no-commit', '--test', '-t', action='store_true', dest='no_commit', help='do not actually save changes, no SQL commit')
     parser.add_argument('--limit', '-l', type=int, default=0, help='limit to the most recent N messages')
     try:
         args = parser.parse_args()
@@ -15,10 +16,9 @@ def sms_main():
         print "Problem opening file."
         quit()
 
-    #allow use of either the -d option or sms_debug=False
-    global sms_debug, test_run
-    sms_debug = args.sms_debug if args.sms_debug else sms_debug
-    test_run = args.test_run if args.test_run else test_run
+    global VERBOSE, NO_COMMIT
+    VERBOSE = args.verbose
+    NO_COMMIT = args.no_commit
 
     #get the texts into memory
     print "Importing texts from CSV file:"
@@ -92,12 +92,9 @@ def readTextsFromAndroid(file):
          FROM sms \
          ORDER BY _id ASC;')
     for row in query:
-        if sms_debug and i > 80:
-            return
-        i+=1
         txt = Text(row[0],long(row[1]),(row[2]==2),row[3])
         texts.append(txt)
-        if sms_debug:
+        if VERBOSE:
             print txt
     return texts
 
@@ -128,9 +125,6 @@ def exportAndroidSQL(texts, outfile):
     starttime = time.time()
 
     for txt in texts:
-        if sms_debug and i > 80:
-            break #sms_debug breaks early
-
         clean_number = cleanNumber(txt.num)
 
         #add a new canonical_addresses lookup entry and thread item if it doesn't exist
@@ -145,7 +139,7 @@ def exportAndroidSQL(texts, outfile):
         c.execute( "SELECT _id FROM threads WHERE recipient_ids=? ", [contact_id] )
         thread_id = c.fetchone()[0]
 
-        if sms_debug:
+        if VERBOSE:
             print "thread_id = "+ str(thread_id)
             c.execute( "SELECT * FROM threads WHERE _id=?", [contact_id] )
             print "updated thread: " + str(c.fetchone())
@@ -165,12 +159,12 @@ def exportAndroidSQL(texts, outfile):
 
     print "\nfinished in {0} seconds (average {1}/second)".format((time.time() - starttime), int(i/(time.time() - starttime)))
 
-    if sms_debug:
+    if VERBOSE:
         print "\n\nthreads: "
         for row in c.execute('SELECT * FROM threads'):
             print row
 
-    if not test_run and not sms_debug:
+    if not NO_COMMIT:
         conn.commit()
         print "changes saved to "+outfile
 
