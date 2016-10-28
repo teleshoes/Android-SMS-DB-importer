@@ -61,10 +61,13 @@ class Text:
           .replace('&backslash;', '\\\\')
           .replace('&amp;', '&')
         )
+        date_sent_millis = self.date_sent_millis
+        if date_sent_millis == 0:
+          date_sent_millis = self.date_millis
         return (""
           + ""  + cleanNumber(self.number)
           + "," + str(self.date_millis)
-          + "," + str(self.date_sent_millis)
+          + "," + str(date_sent_millis)
           + "," + self.sms_mms_type
           + "," + self.direction
           + "," + self.date_format
