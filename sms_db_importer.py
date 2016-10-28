@@ -37,9 +37,11 @@ def sms_main():
     exportAndroidSQL(texts, args.MMSSMS_DB)
 
 class Text:
-    def __init__( self, number, date_millis, direction, body):
+    def __init__( self, number, date_millis, date_sent_millis,
+                  direction, body):
         self.number = number
         self.date_millis = date_millis
+        self.date_sent_millis = date_sent_millis
         self.direction = direction
         self.body = body
     def __str__(self):
@@ -77,6 +79,7 @@ def readTextsFromCSV(csvFile):
         texts.append(Text
               ( number
               , date_millis
+              , date_sent_millis
               , direction
               , body
               ))
@@ -88,20 +91,21 @@ def readTextsFromAndroid(file):
     i=0
     texts = []
     query = c.execute(
-        'SELECT address, date, type, body \
+        'SELECT address, date, date_sent, type, body \
          FROM sms \
          ORDER BY _id ASC;')
     for row in query:
         number = row[0]
         date_millis = long(row[1])
-        dir_type = row[2]
+        date_sent_millis = long(row[2])
+        dir_type = row[3]
         if dir_type == 2:
           direction = "OUT"
         elif dir_type == 1:
           direction = "INC"
-        body = row[3]
+        body = row[4]
 
-        txt = Text(number, date_millis, direction, body)
+        txt = Text(number, date_millis, date_sent_millis, direction, body)
         texts.append(txt)
         if VERBOSE:
             print txt
@@ -163,8 +167,8 @@ def exportAndroidSQL(texts, outfile):
           quit()
 
         #add message to sms table
-        c.execute( "INSERT INTO sms (address,date,body,thread_id,read,type,seen) VALUES (?,?,?,?,?,?,?,?)", [
-           txt.number,txt.date_millis,txt.body,thread_id,1,dir_type,1])
+        c.execute( "INSERT INTO sms (address,date,date_sent,body,thread_id,read,type,seen) VALUES (?,?,?,?,?,?,?,?)", [
+           txt.number,txt.date_millis,txt.date_sent_millis,txt.body,thread_id,1,dir_type,1])
 
         #print status (with fancy speed calculation)
         recalculate_every = 100
