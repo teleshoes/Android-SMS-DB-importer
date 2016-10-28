@@ -45,13 +45,8 @@ class Text:
     def __str__(self):
         return "%s(%r)" % (self.__class__, self.__dict__)
 
-def cleanNumber(numb):
-    if not numb:
-        return False
-    stripped = ''.join(ch for ch in numb if ch.isalnum())
-    if not stripped.isdigit():
-        return False
-    return stripped[-10:]
+def cleanNumber(number):
+    return re.sub(r'[^+0-9]', '', number)
 
 ## Import functions ##
 def readTextsFromCSV(file):
