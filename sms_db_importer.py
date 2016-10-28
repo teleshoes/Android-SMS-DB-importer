@@ -62,7 +62,7 @@ class Text:
           .replace('&amp;', '&')
         )
         return (""
-          + ""  + self.number
+          + ""  + cleanNumber(self.number)
           + "," + str(self.date_millis)
           + "," + str(self.date_sent_millis)
           + "," + self.sms_mms_type
