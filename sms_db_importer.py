@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import argparse, codecs, re, sys, time, sqlite3
 
 VERBOSE = False
