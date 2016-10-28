@@ -38,11 +38,13 @@ def sms_main():
 
 class Text:
     def __init__( self, number, date_millis, date_sent_millis,
-                  direction, body):
+                  sms_mms_type, direction, date_format, body):
         self.number = number
         self.date_millis = date_millis
         self.date_sent_millis = date_sent_millis
+        self.sms_mms_type = sms_mms_type
         self.direction = direction
+        self.date_format = date_format
         self.body = body
     def __str__(self):
         return "%s(%r)" % (self.__class__, self.__dict__)
@@ -80,7 +82,9 @@ def readTextsFromCSV(csvFile):
               ( number
               , date_millis
               , date_sent_millis
+              , sms_mms_type
               , direction
+              , date_format
               , body
               ))
     return texts
@@ -98,14 +102,18 @@ def readTextsFromAndroid(file):
         number = row[0]
         date_millis = long(row[1])
         date_sent_millis = long(row[2])
+        sms_mms_type = "S"
         dir_type = row[3]
         if dir_type == 2:
           direction = "OUT"
         elif dir_type == 1:
           direction = "INC"
         body = row[4]
+        date_format = time.strftime("%Y-%m-%d %H:%M:%S",
+          time.localtime(date_millis/1000))
 
-        txt = Text(number, date_millis, date_sent_millis, direction, body)
+        txt = Text(number, date_millis, date_sent_millis,
+          sms_mms_type, direction, date_format, body)
         texts.append(txt)
         if VERBOSE:
             print txt
