@@ -5,16 +5,12 @@ NO_COMMIT = False
 
 def sms_main():
     parser = argparse.ArgumentParser(description='Import texts to android sms database file.')
-    parser.add_argument('SMS_CSV_FILE', type=argparse.FileType('r'), help='CSV file of texts to import')
+    parser.add_argument('SMS_CSV_FILE', type=str, help='CSV file of texts to import')
     parser.add_argument('MMSSMS_DB', type=str, help='existing mmssms.db file to fill up')
     parser.add_argument('--verbose', '-v', action='store_true', dest='verbose', help='verbose output, slower')
     parser.add_argument('--no-commit', '--test', '-t', action='store_true', dest='no_commit', help='do not actually save changes, no SQL commit')
     parser.add_argument('--limit', '-l', type=int, default=0, help='limit to the most recent N messages')
-    try:
-        args = parser.parse_args()
-    except IOError:
-        print "Problem opening file."
-        quit()
+    args = parser.parse_args()
 
     global VERBOSE, NO_COMMIT
     VERBOSE = args.verbose
@@ -23,7 +19,7 @@ def sms_main():
     #get the texts into memory
     print "Importing texts from CSV file:"
     starttime = time.time() #meause execution time
-    texts = readTextsFromCSV( args.SMS_CSV_FILE )
+    texts = readTextsFromCSV(args.SMS_CSV_FILE)
     print "finished in {0} seconds, {1} messages read".format( (time.time()-starttime), len(texts) )
 
     print "sorting all {0} texts by date".format( len(texts) )
@@ -54,9 +50,17 @@ def cleanNumber(number):
 
 ## Import functions ##
 def readTextsFromCSV(csvFile):
+    try:
+        csvFile = open(csvFile, 'r')
+        csvContents = csvFile.read()
+        csvFile.close()
+    except IOError:
+        print "could not read csv file: " + str(csvFile)
+        quit()
+
     texts = []
     rowRegex = re.compile(r'([0-9+]+),(\d+),(\d+),(S|M),(INC|OUT),([^,]*),\"(.*)\"')
-    for row in csvFile.read().splitlines():
+    for row in csvContents.splitlines():
         m = rowRegex.match(row)
         if not m or len(m.groups()) != 7:
             print "invalid SMS CSV line: " + row
