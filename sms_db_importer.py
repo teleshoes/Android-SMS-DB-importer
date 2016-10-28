@@ -5,12 +5,12 @@ NO_COMMIT = False
 
 def sms_main():
     parser = argparse.ArgumentParser(description='Import texts to android sms database file.')
-    parser.add_argument('SMS_CSV_FILE', type=str, help='CSV file of texts to import')
-    parser.add_argument('MMSSMS_DB', type=str, help='existing mmssms.db file to fill up')
-    parser.add_argument('--db-to-csv', action='store_true', dest='db_to_csv', help='reverse process, writing mmssms.db contents to CSV file')
-    parser.add_argument('--verbose', '-v', action='store_true', dest='verbose', help='verbose output, slower')
-    parser.add_argument('--no-commit', '--test', '-t', action='store_true', dest='no_commit', help='do not actually save changes, no SQL commit')
-    parser.add_argument('--limit', '-l', type=int, default=0, help='limit to the most recent N messages')
+    parser.add_argument('SMS_CSV_FILE',      type=str,                              help='CSV file of texts to import')
+    parser.add_argument('MMSSMS_DB',         type=str,                              help='existing mmssms.db file to fill up')
+    parser.add_argument('--db-to-csv',       action='store_true', dest='db_to_csv', help='opposite flow, extract MMSSMS_DB contents to SMS_CSV_FILE')
+    parser.add_argument('--verbose', '-v',   action='store_true', dest='verbose',   help='verbose output, slower')
+    parser.add_argument('--no-commit', '-n', action='store_true', dest='no_commit', help='do not actually save changes, no SQL commit')
+    parser.add_argument('--limit',           type=int, default=0,                   help='limit to the most recent <LIMIT> messages')
     args = parser.parse_args()
 
     global VERBOSE, NO_COMMIT
