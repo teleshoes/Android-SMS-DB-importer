@@ -74,7 +74,9 @@ class Text:
         return self.toCsv()
 
 def cleanNumber(number):
-    return re.sub(r'[^+0-9]', '', number)
+    number = re.sub(r'[^+0-9]', '', number)
+    number = re.sub(r'^\+?1(\d{10})$', '\\1', number)
+    return number
 
 ## Import functions ##
 def readTextsFromCSV(csvFile):
