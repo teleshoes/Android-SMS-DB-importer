@@ -1,4 +1,4 @@
-import argparse, os, sys, time, dateutil.parser, sqlite3, csv, xml.dom.minidom
+import argparse, re, sys, time, sqlite3
 
 VERBOSE = False
 NO_COMMIT = False
@@ -27,7 +27,7 @@ def sms_main():
     print "finished in {0} seconds, {1} messages read".format( (time.time()-starttime), len(texts) )
 
     print "sorting all {0} texts by date".format( len(texts) )
-    texts = sorted(texts, key=lambda text: text.date)
+    texts = sorted(texts, key=lambda text: text.date_millis)
 
     if args.limit > 0:
         print "saving only the last {0} messages".format( args.limit )
@@ -37,10 +37,10 @@ def sms_main():
     exportAndroidSQL(texts, args.MMSSMS_DB)
 
 class Text:
-    def __init__( self, num, date, incoming, body):
-        self.num  = num
-        self.date = date
-        self.incoming = incoming
+    def __init__( self, number, date_millis, direction, body):
+        self.number = number
+        self.date_millis = date_millis
+        self.direction = direction
         self.body = body
     def __str__(self):
         return "%s(%r)" % (self.__class__, self.__dict__)
@@ -49,32 +49,37 @@ def cleanNumber(number):
     return re.sub(r'[^+0-9]', '', number)
 
 ## Import functions ##
-def readTextsFromCSV(file):
-    inreader = csv.reader( file )
-
-    #gather needed column indexes from the csv file
-    firstrow = inreader.next() #skip the first line (column names)
-    phNumberIndex = firstrow.index("PhoneNumber") if "PhoneNumber" in firstrow else -1
-    dateIndex     = firstrow.index("TimeRecordedUTC") if "TimeRecordedUTC" in firstrow else -1
-    typeIndex     = firstrow.index("Incoming") if "Incoming" in firstrow else -1
-    bodyIndex     = firstrow.index("Text") if "Text" in firstrow else -1
-    cidIndex      = firstrow.index("ContactID") if "ContactID" in firstrow else -1
-
-    #check to be sure they all exist
-    if (-1) in [phNumberIndex, dateIndex, typeIndex, bodyIndex, cidIndex]:
-        print "CSV file missing needed columns. has: "+ str(firstrow)
-        quit()
-
+def readTextsFromCSV(csvFile):
     texts = []
-    i=0
-    for row in inreader:
-        txt = Text(
-                row[phNumberIndex], #number
-                long(float(dateutil.parser.parse(row[dateIndex]).strftime('%s.%f'))*1000), #date
-                row[typeIndex]=='0', #type
-                row[bodyIndex] ) #body
-        texts.append(txt)
-        i += 1
+    rowRegex = re.compile(r'([0-9+]+),(\d+),(\d+),(S|M),(INC|OUT),([^,]*),\"(.*)\"')
+    for row in csvFile.read().splitlines():
+        m = rowRegex.match(row)
+        if not m or len(m.groups()) != 7:
+            print "invalid SMS CSV line: " + row
+            quit()
+        number           = m.group(1)
+        date_millis      = m.group(2)
+        date_sent_millis = m.group(3)
+        sms_mms_type     = m.group(4)
+        direction        = m.group(5)
+        date_format      = m.group(6)
+        body             = (m.group(7)
+          .replace('&', '&amp;')
+          .replace('\\\\', '&backslash;')
+          .replace('\\n', '\n')
+          .replace('\\r', '\r')
+          .replace('\\"', '"')
+          .replace('&backslash;', '\\')
+          .replace('&amp;', '&')
+          .decode('utf-8')
+        )
+
+        texts.append(Text
+              ( number
+              , date_millis
+              , direction
+              , body
+              ))
     return texts
 
 def readTextsFromAndroid(file):
@@ -87,7 +92,16 @@ def readTextsFromAndroid(file):
          FROM sms \
          ORDER BY _id ASC;')
     for row in query:
-        txt = Text(row[0],long(row[1]),(row[2]==2),row[3])
+        number = row[0]
+        date_millis = long(row[1])
+        dir_type = row[2]
+        if dir_type == 2:
+          direction = "OUT"
+        elif dir_type == 1:
+          direction = "INC"
+        body = row[3]
+
+        txt = Text(number, date_millis, direction, body)
         texts.append(txt)
         if VERBOSE:
             print txt
@@ -120,17 +134,17 @@ def exportAndroidSQL(texts, outfile):
     starttime = time.time()
 
     for txt in texts:
-        clean_number = cleanNumber(txt.num)
+        clean_number = cleanNumber(txt.number)
 
         #add a new canonical_addresses lookup entry and thread item if it doesn't exist
         if not clean_number in contactIdFromNumber:
-            c.execute( "INSERT INTO canonical_addresses (address) VALUES (?)", [txt.num])
+            c.execute( "INSERT INTO canonical_addresses (address) VALUES (?)", [txt.number])
             contactIdFromNumber[clean_number] = c.lastrowid
             c.execute( "INSERT INTO threads (recipient_ids) VALUES (?)", [contactIdFromNumber[clean_number]])
         contact_id = contactIdFromNumber[clean_number]
 
         #now update the conversation thread (happends with each new message)
-        c.execute( "UPDATE threads SET message_count=message_count + 1,snippet=?,'date'=? WHERE recipient_ids=? ", [txt.body,txt.date,contact_id] )
+        c.execute( "UPDATE threads SET message_count=message_count + 1,snippet=?,'date'=? WHERE recipient_ids=? ", [txt.body,txt.date_millis,contact_id] )
         c.execute( "SELECT _id FROM threads WHERE recipient_ids=? ", [contact_id] )
         thread_id = c.fetchone()[0]
 
@@ -138,10 +152,19 @@ def exportAndroidSQL(texts, outfile):
             print "thread_id = "+ str(thread_id)
             c.execute( "SELECT * FROM threads WHERE _id=?", [contact_id] )
             print "updated thread: " + str(c.fetchone())
-            print "adding entry to message db: " + str([txt.num,txt.date,txt.body,thread_id,txt.incoming+1])
+            print "adding entry to message db: " + str([txt.number,txt.date_millis,txt.body,thread_id,txt.direction])
+
+        if txt.direction == "OUT":
+          dir_type = 2
+        elif txt.direction == "INC":
+          dir_type = 1
+        else:
+          print 'could not parse direction: ' + txt.direction
+          quit()
 
         #add message to sms table
-        c.execute( "INSERT INTO sms (address,'date',body,thread_id,read,type,seen) VALUES (?,?,?,?,1,?,1)", [txt.num,txt.date,txt.body,thread_id,txt.type])
+        c.execute( "INSERT INTO sms (address,date,body,thread_id,read,type,seen) VALUES (?,?,?,?,?,?,?,?)", [
+           txt.number,txt.date_millis,txt.body,thread_id,1,dir_type,1])
 
         #print status (with fancy speed calculation)
         recalculate_every = 100
