@@ -1,4 +1,4 @@
-import argparse, re, sys, time, sqlite3
+import argparse, codecs, re, sys, time, sqlite3
 
 VERBOSE = False
 NO_COMMIT = False
@@ -7,6 +7,7 @@ def sms_main():
     parser = argparse.ArgumentParser(description='Import texts to android sms database file.')
     parser.add_argument('SMS_CSV_FILE', type=str, help='CSV file of texts to import')
     parser.add_argument('MMSSMS_DB', type=str, help='existing mmssms.db file to fill up')
+    parser.add_argument('--db-to-csv', action='store_true', dest='db_to_csv', help='reverse process, writing mmssms.db contents to CSV file')
     parser.add_argument('--verbose', '-v', action='store_true', dest='verbose', help='verbose output, slower')
     parser.add_argument('--no-commit', '--test', '-t', action='store_true', dest='no_commit', help='do not actually save changes, no SQL commit')
     parser.add_argument('--limit', '-l', type=int, default=0, help='limit to the most recent N messages')
@@ -16,9 +17,16 @@ def sms_main():
     VERBOSE = args.verbose
     NO_COMMIT = args.no_commit
 
-    #get the texts into memory
+    if args.db_to_csv:
+      texts = readTextsFromAndroid(args.MMSSMS_DB)
+      f = codecs.open(args.SMS_CSV_FILE, 'w', 'utf-8')
+      for txt in texts:
+        f.write(txt.toCsv() + "\n")
+      f.close()
+      quit()
+
     print "Importing texts from CSV file:"
-    starttime = time.time() #meause execution time
+    starttime = time.time()
     texts = readTextsFromCSV(args.SMS_CSV_FILE)
     print "finished in {0} seconds, {1} messages read".format( (time.time()-starttime), len(texts) )
 
@@ -42,8 +50,27 @@ class Text:
         self.direction = direction
         self.date_format = date_format
         self.body = body
+    def toCsv(self):
+        body = (self.body
+          .replace('&', '&amp;')
+          .replace('\\', '&backslash;')
+          .replace('\n', '\\n')
+          .replace('\r', '\\r')
+          .replace('"', '\\"')
+          .replace('&backslash;', '\\\\')
+          .replace('&amp;', '&')
+        )
+        return (""
+          + ""  + self.number
+          + "," + str(self.date_millis)
+          + "," + str(self.date_sent_millis)
+          + "," + self.sms_mms_type
+          + "," + self.direction
+          + "," + self.date_format
+          + "," + "\"" + body + "\""
+        )
     def __str__(self):
-        return "%s(%r)" % (self.__class__, self.__dict__)
+        return self.toCsv()
 
 def cleanNumber(number):
     return re.sub(r'[^+0-9]', '', number)
@@ -120,7 +147,7 @@ def readTextsFromAndroid(file):
           sms_mms_type, direction, date_format, body)
         texts.append(txt)
         if VERBOSE:
-            print txt
+            print txt.toCsv()
     return texts
 
 def getDbTableNames(file):
