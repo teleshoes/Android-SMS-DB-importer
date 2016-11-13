@@ -52,15 +52,6 @@ class Text:
     self.date_format = date_format
     self.body = body
   def toCsv(self):
-    body = (self.body
-      .replace('&', '&amp;')
-      .replace('\\', '&backslash;')
-      .replace('\n', '\\n')
-      .replace('\r', '\\r')
-      .replace('"', '\\"')
-      .replace('&backslash;', '\\\\')
-      .replace('&amp;', '&')
-    )
     date_sent_millis = self.date_sent_millis
     if date_sent_millis == 0:
       date_sent_millis = self.date_millis
@@ -71,10 +62,21 @@ class Text:
       + "," + self.sms_mms_type
       + "," + self.direction
       + "," + self.date_format
-      + "," + "\"" + body + "\""
+      + "," + "\"" + escapeStr(self.body) + "\""
     )
   def __str__(self):
     return self.toCsv()
+
+def escapeStr(s):
+  return (s
+    .replace('&', '&amp;')
+    .replace('\\', '&backslash;')
+    .replace('\n', '\\n')
+    .replace('\r', '\\r')
+    .replace('"', '\\"')
+    .replace('&backslash;', '\\\\')
+    .replace('&amp;', '&')
+  )
 
 def cleanNumber(number):
   number = re.sub(r'[^+0-9]', '', number)
