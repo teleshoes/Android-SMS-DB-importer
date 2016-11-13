@@ -4,14 +4,26 @@ import argparse, codecs, re, sys, time, sqlite3
 VERBOSE = False
 NO_COMMIT = False
 
+argHelp = { '--csv-file':      'CSV file of texts to import'
+          , '--db-file':       'existing mmssms.db file to fill up'
+          , '--db-to-csv':     'opposite flow, extract <DB_FILE> contents to <CSV_FILE>'
+          , '--verbose':       'verbose output, slower'
+          , '--no-commit':     'do not actually save changes, no SQL commit'
+          , '--limit':         'limit to the most recent <LIMIT> messages'
+          , '--mms-parts-dir': 'local copy of /data/*/com.android.providers.telephony/app_parts/'
+          , '--mms-msg-dir':   'directory of MMS messages'
+          }
+
 def sms_main():
   parser = argparse.ArgumentParser(description='Import texts to android sms database file.')
-  parser.add_argument('SMS_CSV_FILE',      type=str,            help='CSV file of texts to import')
-  parser.add_argument('MMSSMS_DB',         type=str,            help='existing mmssms.db file to fill up')
-  parser.add_argument('--db-to-csv',       action='store_true', help='opposite flow, extract MMSSMS_DB contents to SMS_CSV_FILE')
-  parser.add_argument('--verbose', '-v',   action='store_true', help='verbose output, slower')
-  parser.add_argument('--no-commit', '-n', action='store_true', help='do not actually save changes, no SQL commit')
-  parser.add_argument('--limit',           type=int, default=0, help='limit to the most recent <LIMIT> messages')
+  reqArgs = parser.add_argument_group('required arguments')
+  optArgs = parser
+  reqArgs.add_argument('--csv-file', '-c',  help=argHelp['--csv-file'],      required=True)
+  reqArgs.add_argument('--db-file', '-d',   help=argHelp['--db-file'],       required=True)
+  optArgs.add_argument('--db-to-csv',       help=argHelp['--db-to-csv'],     action='store_true')
+  optArgs.add_argument('--verbose', '-v',   help=argHelp['--verbose'],       action='store_true')
+  optArgs.add_argument('--no-commit', '-n', help=argHelp['--no-commit'],     action='store_true')
+  optArgs.add_argument('--limit',           help=argHelp['--limit'],         type=int, default=0)
   args = parser.parse_args()
 
   global VERBOSE, NO_COMMIT
@@ -19,8 +31,8 @@ def sms_main():
   NO_COMMIT = args.no_commit
 
   if args.db_to_csv:
-    texts = readTextsFromAndroid(args.MMSSMS_DB)
-    f = codecs.open(args.SMS_CSV_FILE, 'w', 'utf-8')
+    texts = readTextsFromAndroid(args.db_file)
+    f = codecs.open(args.csv_file, 'w', 'utf-8')
     for txt in texts:
       f.write(txt.toCsv() + "\n")
     f.close()
@@ -28,7 +40,7 @@ def sms_main():
 
   print "Importing texts from CSV file:"
   starttime = time.time()
-  texts = readTextsFromCSV(args.SMS_CSV_FILE)
+  texts = readTextsFromCSV(args.csv_file)
   print "finished in {0} seconds, {1} messages read".format( (time.time()-starttime), len(texts) )
 
   print "sorting all {0} texts by date".format( len(texts) )
@@ -38,8 +50,8 @@ def sms_main():
     print "saving only the last {0} messages".format( args.limit )
     texts = texts[ (-args.limit) : ]
 
-  print "Saving changes into Android DB (mmssms.db), "+str(args.MMSSMS_DB)
-  exportAndroidSQL(texts, args.MMSSMS_DB)
+  print "Saving changes into Android DB (mmssms.db), "+str(args.db_file)
+  exportAndroidSQL(texts, args.db_file)
 
 class Text:
   def __init__( self, number, date_millis, date_sent_millis,
