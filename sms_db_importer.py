@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import argparse, codecs, re, sys, time, sqlite3
+import argparse, codecs, re, sys, time, sqlite3, os.path, hashlib
 
 VERBOSE = False
 NO_COMMIT = False
@@ -116,6 +116,107 @@ def escapeStr(s):
     .replace('&amp;', '&')
   )
 
+class MMS:
+  def __init__(self, mms_parts_dir):
+    self.mms_parts_dir = mms_parts_dir
+    self.msg_id = None
+    self.from_number = None
+    self.to_numbers = []
+    self.date_millis = None
+    self.date_sent_millis = None
+    self.direction = None
+    self.date_format = None
+    self.subject = None
+
+    self.parts = []
+    self.body = None
+    self.attFiles = []
+    self.checksum = None
+  def parseParts(self):
+    self.body = None
+    self.attFiles = []
+    self.checksum = None
+    for p in self.parts:
+      if 'smil' in p.part_type:
+        pass
+      elif p.body != None:
+        if self.body != None:
+          print "multiple text parts found for mms: " + str(self)
+          quit()
+        self.body = p.body
+      elif p.filepath != None:
+        filename = p.filepath
+        filename = re.sub(r'/data/user/.*/com.android.providers.telephony/app_parts/', '', filename)
+        if "/" in filename:
+          print "filename contains path sep '/': " + filename
+          quit()
+        self.attFiles.append(filename)
+      else:
+        print "invalid MMS part: " + str(p)
+        quit()
+    if self.body == None:
+      self.body = ""
+    self.checksum = self.generateChecksum()
+  def generateChecksum(self):
+    md5 = hashlib.md5()
+    if self.subject != None:
+      md5.update(self.subject)
+    if self.body != None:
+      md5.update(self.body)
+    for attFile in self.attFiles:
+      md5.update("\n" + attFile + "\n")
+      filepath = self.mms_parts_dir + "/" + attFile
+      if not os.path.isfile(filepath):
+        print "missing att file: " + filepath
+        quit()
+      f = open(filepath, 'r')
+      md5.update(f.read())
+      f.close()
+    return md5.hexdigest()
+  def getMsgDirName(self):
+    dirName = ""
+    dirName += str(self.date_millis)
+    dirName += "_"
+    if self.direction == "INC":
+      dirName += str(self.from_number)
+    elif self.direction == "OUT":
+      dirName += "-".join(self.to_numbers)
+    else:
+      print "invalid direction: " + str(self.direction)
+      quit()
+    dirName += "_"
+    dirName += str(self.direction)
+    dirName += "_"
+    dirName += str(self.checksum)
+    return dirName
+  def getInfo(self):
+    date_sent_millis = self.date_sent_millis
+    if date_sent_millis == 0:
+      date_sent_millis = self.date_millis
+    info = ""
+    info += "from=" + str(self.from_number) + "\n"
+    for to_number in self.to_numbers:
+      info += "to=" + str(to_number) + "\n"
+    info += "dir=" + str(self.direction) + "\n"
+    info += "date=" + str(self.date_millis) + "\n"
+    info += "date_sent=" + str(date_sent_millis) + "\n"
+    info += "subject=\"" + escapeStr(str(self.subject)) + "\"\n"
+    info += "body=\"" + escapeStr(str(self.body)) + "\"\n"
+    for attFile in self.attFiles:
+      info += "att=" + str(attFile) + "\n"
+    info += "checksum=" + str(self.checksum) + "\n"
+    return info
+  def __str__(self):
+    return self.getInfo()
+
+class MMSPart:
+  def __init__(self):
+    self.msg_id = None
+    self.part_type = None
+    self.filename = None
+    self.filepath = None
+    self.body = None
+
 def cleanNumber(number):
   number = re.sub(r'[^+0-9]', '', number)
   number = re.sub(r'^\+?1(\d{10})$', '\\1', number)
@@ -193,6 +294,110 @@ def readTextsFromAndroid(db_file):
     if VERBOSE:
       print txt.toCsv()
   return texts
+
+def readMMSFromAndroid(db_file, mms_parts_dir):
+  conn = sqlite3.connect(db_file)
+  c = conn.cursor()
+  i=0
+  texts = []
+  query = c.execute(
+    'SELECT _id, date, date_sent, m_type, sub \
+     FROM pdu \
+     ORDER BY _id ASC;')
+  msgs = {}
+  for row in query:
+    msg_id = row[0]
+    date_millis = long(row[1]) * 1000
+    date_sent_millis = long(row[2]) * 1000
+    dir_type_mms = row[3]
+    subject = row[4]
+
+    if subject == None:
+      subject = ""
+
+    if dir_type_mms == 128:
+      direction = "OUT"
+    elif dir_type_mms == 132:
+      direction = "INC"
+    else:
+      print "INVALID MMS DIRECTION TYPE: " + str(dir_type_mms)
+      quit()
+
+    date_format = time.strftime("%Y-%m-%d %H:%M:%S",
+      time.localtime(date_millis/1000))
+
+    msg = MMS(mms_parts_dir)
+    msg.msg_id = msg_id
+    msg.date_millis = date_millis
+    msg.date_sent_millis = date_sent_millis
+    msg.direction = direction
+    msg.date_format = date_format
+    msg.subject = subject
+
+    msgs[msg_id] = msg
+
+  query = c.execute(
+    'SELECT mid, ct, name, _data, text \
+     FROM part \
+     ORDER BY _id ASC;')
+
+  for row in query:
+    msg_id = row[0]
+    part_type = row[1]
+    filename = row[2]
+    filepath = row[3]
+    body = row[4]
+
+    msg = msgs[msg_id]
+    if msg == None:
+      print "INVALID MESSAGE ID FOR PART: " + str(row)
+      quit()
+
+    part = MMSPart()
+    part.msg_id = msg_id
+    part.part_type = part_type
+    part.filename = filename
+    part.filepath = filepath
+    part.body = body
+    msg.parts.append(part)
+
+  for msg in msgs.values():
+    msg.parseParts()
+
+  query = c.execute(
+    'SELECT msg_id, address, type \
+     FROM addr \
+     ORDER BY msg_id ASC;')
+
+  for row in query:
+    msg_id = row[0]
+    number = row[1]
+    dir_type_addr = row[2]
+
+    is_sender_addr = False
+    is_recipient_addr = False
+    if dir_type_addr == 137:
+      is_sender_addr = True
+    elif dir_type_addr == 151:
+      is_recipient_addr = True
+    else:
+      print "INVALID ADDRESS DIRECTION: " + str(dir_type_addr)
+      quit()
+
+    msg = msgs[msg_id]
+    if msg == None:
+      print "INVALID MESSAGE ID FOR ADDRESS: " + str(row)
+      quit()
+
+    if is_sender_addr:
+      if msg.from_number != None:
+        print "too many sender addresses" + str(row)
+        quit()
+      msg.from_number = cleanNumber(number)
+    elif is_recipient_addr:
+      msg.to_numbers.append(cleanNumber(number))
+
+  return msgs
 
 def getDbTableNames(db_file):
   cur = sqlite3.connect(db_file).cursor()
