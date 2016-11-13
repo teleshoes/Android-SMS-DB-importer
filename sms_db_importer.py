@@ -9,11 +9,15 @@ argHelp = { 'COMMAND':          ( 'import-to-db\n'
                                 + '  and output to <DB_FILE>\n'
                                 + '\n'
                                 + 'export-from-db\n'
-                                + '  extract SMS from <DB_FILE>\n'
-                                + '  and output to <CSV_FILE>\n'
+                                + '  extract SMS/MMS from <DB_FILE> and <MMS_PARTS_DIR>\n'
+                                + '  and output to <CSV_FILE> and <MMS_MSG_DIR>\n'
                                 )
           , '--csv-file':       ( 'CSV file to import-from/export-to')
           , '--db-file':        ( 'pre-existing mmssms.db file to import-to/export-from')
+          , '--mms-parts-dir':  ( 'local copy of app_parts dir to import-to/expot-from\n'
+                                + '  /data/**/com.android.providers.telephony/app_parts/\n'
+                                )
+          , '--mms-msg-dir':    ( 'directory of MMS messages to import-from/export-to')
           , '--verbose':        ( 'verbose output, slower')
           , '--no-commit':      ( 'do not actually save changes, no SQL commit')
           , '--limit':          ( 'limit to the most recent <LIMIT> messages')
@@ -34,6 +38,8 @@ def sms_main():
   parser.add_argument('COMMAND',           help=argHelp['COMMAND'])
   parser.add_argument('--csv-file',        help=argHelp['--csv-file'])
   parser.add_argument('--db-file',         help=argHelp['--db-file'])
+  parser.add_argument('--mms-parts-dir',   help=argHelp['--mms-parts-dir'], default="./app_parts")
+  parser.add_argument('--mms-msg-dir',     help=argHelp['--mms-msg-dir'],   default="./mms_messages")
   parser.add_argument('--verbose', '-v',   help=argHelp['--verbose'],       action='store_true')
   parser.add_argument('--no-commit', '-n', help=argHelp['--no-commit'],     action='store_true')
   parser.add_argument('--limit',           help=argHelp['--limit'],         type=int, default=0)
@@ -59,6 +65,31 @@ def sms_main():
     for txt in texts:
       f.write(txt.toCsv() + "\n")
     f.close()
+
+    if not os.path.isdir(args.mms_msg_dir):
+      print "skipping MMS export, no <MMS_MSG_DIR> for writing to"
+    elif not os.path.isdir(args.mms_parts_dir):
+      print "skipping MMS export, no <MMS_PARTS_DIR> to read attachments from"
+    else:
+      msgs = readMMSFromAndroid(args.db_file, args.mms_parts_dir)
+      print "read " + str(len(msgs)) + " MMS messages from " + args.db_file
+      attFileCount = 0
+      for msg in msgs.values():
+        dirName = msg.getMsgDirName()
+        msgDir = args.mms_msg_dir + "/" + dirName
+        if not os.path.isdir(msgDir):
+          os.mkdir(msgDir)
+        infoFile = open(msgDir + "/" + "info", 'w')
+        infoFile.write(msg.getInfo())
+        infoFile.close()
+        for attFile in msg.attFiles:
+          srcFile = args.mms_parts_dir + "/" + attFile
+          destFile = msgDir + "/" + attFile
+          if 0 != os.system("cp -ar --reflink '" + srcFile + "' '" + destFile + "'"):
+            print "failed to copy " + str(srcFile)
+            quit()
+          attFileCount += 1
+      print "copied " + str(attFileCount) + " files from " + args.mms_parts_dir
   elif args.COMMAND == "import-to-db":
     print "Reading texts from CSV file:"
     starttime = time.time()
