@@ -54,6 +54,7 @@ def sms_main():
 
   if args.COMMAND == "export-from-db":
     texts = readTextsFromAndroid(args.db_file)
+    print "read " + str(len(texts)) + " SMS messages from " + args.db_file
     f = codecs.open(args.csv_file, 'w', 'utf-8')
     for txt in texts:
       f.write(txt.toCsv() + "\n")
