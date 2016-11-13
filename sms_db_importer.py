@@ -4,54 +4,79 @@ import argparse, codecs, re, sys, time, sqlite3
 VERBOSE = False
 NO_COMMIT = False
 
-argHelp = { '--csv-file':      'CSV file of texts to import'
-          , '--db-file':       'existing mmssms.db file to fill up'
-          , '--db-to-csv':     'opposite flow, extract <DB_FILE> contents to <CSV_FILE>'
-          , '--verbose':       'verbose output, slower'
-          , '--no-commit':     'do not actually save changes, no SQL commit'
-          , '--limit':         'limit to the most recent <LIMIT> messages'
-          , '--mms-parts-dir': 'local copy of /data/*/com.android.providers.telephony/app_parts/'
-          , '--mms-msg-dir':   'directory of MMS messages'
+argHelp = { 'COMMAND':          ( 'import-to-db\n'
+                                + '  extract SMS from <CSV_FILE>\n'
+                                + '  and output to <DB_FILE>\n'
+                                + '\n'
+                                + 'export-from-db\n'
+                                + '  extract SMS from <DB_FILE>\n'
+                                + '  and output to <CSV_FILE>\n'
+                                )
+          , '--csv-file':       ( 'CSV file to import-from/export-to')
+          , '--db-file':        ( 'pre-existing mmssms.db file to import-to/export-from')
+          , '--verbose':        ( 'verbose output, slower')
+          , '--no-commit':      ( 'do not actually save changes, no SQL commit')
+          , '--limit':          ( 'limit to the most recent <LIMIT> messages')
           }
 
+class UsageFormatter(argparse.HelpFormatter):
+  def __init__(self, prog):
+    argparse.HelpFormatter.__init__(self, prog)
+    self._width = 100
+    self._max_help_position = 40
+  def _split_lines(self, text, width):
+    return text.splitlines()
+
 def sms_main():
-  parser = argparse.ArgumentParser(description='Import texts to android sms database file.')
-  reqArgs = parser.add_argument_group('required arguments')
-  optArgs = parser
-  reqArgs.add_argument('--csv-file', '-c',  help=argHelp['--csv-file'],      required=True)
-  reqArgs.add_argument('--db-file', '-d',   help=argHelp['--db-file'],       required=True)
-  optArgs.add_argument('--db-to-csv',       help=argHelp['--db-to-csv'],     action='store_true')
-  optArgs.add_argument('--verbose', '-v',   help=argHelp['--verbose'],       action='store_true')
-  optArgs.add_argument('--no-commit', '-n', help=argHelp['--no-commit'],     action='store_true')
-  optArgs.add_argument('--limit',           help=argHelp['--limit'],         type=int, default=0)
+  parser = argparse.ArgumentParser(
+    description='Import/export messages to/from android MMS/SMS database file.',
+    formatter_class=UsageFormatter)
+  parser.add_argument('COMMAND',           help=argHelp['COMMAND'])
+  parser.add_argument('--csv-file',        help=argHelp['--csv-file'])
+  parser.add_argument('--db-file',         help=argHelp['--db-file'])
+  parser.add_argument('--verbose', '-v',   help=argHelp['--verbose'],       action='store_true')
+  parser.add_argument('--no-commit', '-n', help=argHelp['--no-commit'],     action='store_true')
+  parser.add_argument('--limit',           help=argHelp['--limit'],         type=int, default=0)
   args = parser.parse_args()
 
   global VERBOSE, NO_COMMIT
   VERBOSE = args.verbose
   NO_COMMIT = args.no_commit
 
-  if args.db_to_csv:
+  if args.csv_file == None:
+    parser.print_help()
+    print "\n--csv-file is required"
+    quit()
+  if args.db_file == None:
+    parser.print_help()
+    print "\n--db-file is required"
+    quit()
+
+  if args.COMMAND == "export-from-db":
     texts = readTextsFromAndroid(args.db_file)
     f = codecs.open(args.csv_file, 'w', 'utf-8')
     for txt in texts:
       f.write(txt.toCsv() + "\n")
     f.close()
+  elif args.COMMAND == "import-to-db":
+    print "Reading texts from CSV file:"
+    starttime = time.time()
+    texts = readTextsFromCSV(args.csv_file)
+    print "finished in {0} seconds, {1} messages read".format( (time.time()-starttime), len(texts) )
+
+    print "sorting all {0} texts by date".format( len(texts) )
+    texts = sorted(texts, key=lambda text: text.date_millis)
+
+    if args.limit > 0:
+      print "saving only the last {0} messages".format( args.limit )
+      texts = texts[ (-args.limit) : ]
+
+    print "Saving changes into Android DB (mmssms.db), "+str(args.db_file)
+    importMessagesToDb(texts, args.db_file)
+  else:
+    print "invalid <COMMAND>: " + args.COMMAND
+    print "  (expected one of 'export-from-db' or 'import-to-db')"
     quit()
-
-  print "Importing texts from CSV file:"
-  starttime = time.time()
-  texts = readTextsFromCSV(args.csv_file)
-  print "finished in {0} seconds, {1} messages read".format( (time.time()-starttime), len(texts) )
-
-  print "sorting all {0} texts by date".format( len(texts) )
-  texts = sorted(texts, key=lambda text: text.date_millis)
-
-  if args.limit > 0:
-    print "saving only the last {0} messages".format( args.limit )
-    texts = texts[ (-args.limit) : ]
-
-  print "Saving changes into Android DB (mmssms.db), "+str(args.db_file)
-  exportAndroidSQL(texts, args.db_file)
 
 class Text:
   def __init__( self, number, date_millis, date_sent_millis,
@@ -95,7 +120,6 @@ def cleanNumber(number):
   number = re.sub(r'^\+?1(\d{10})$', '\\1', number)
   return number
 
-## Import functions ##
 def readTextsFromCSV(csvFile):
   try:
     csvFile = open(csvFile, 'r')
@@ -139,8 +163,8 @@ def readTextsFromCSV(csvFile):
                      ))
   return texts
 
-def readTextsFromAndroid(file):
-  conn = sqlite3.connect(file)
+def readTextsFromAndroid(db_file):
+  conn = sqlite3.connect(db_file)
   c = conn.cursor()
   i=0
   texts = []
@@ -169,18 +193,16 @@ def readTextsFromAndroid(file):
       print txt.toCsv()
   return texts
 
-def getDbTableNames(file):
-  cur = sqlite3.connect(file).cursor()
+def getDbTableNames(db_file):
+  cur = sqlite3.connect(db_file).cursor()
   names = cur.execute("SELECT name FROM sqlite_master WHERE type='table'; ")
   names = [name[0] for name in names]
   cur.close()
   return names
 
-## Export functions ##
-
-def exportAndroidSQL(texts, outfile):
+def importMessagesToDb(texts, db_file):
   #open resources
-  conn = sqlite3.connect(outfile)
+  conn = sqlite3.connect(db_file)
   c = conn.cursor()
 
   #populate fast lookup table:
