@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import argparse, codecs, re, sys, time, sqlite3, os.path, hashlib
+import argparse, codecs, re, sys, time, sqlite3, os.path, hashlib, glob
 
 VERBOSE = False
 NO_COMMIT = False
@@ -96,6 +96,31 @@ def main():
     texts = readTextsFromCSV(args.csv_file)
     print "finished in {0} seconds, {1} messages read".format( (time.time()-starttime), len(texts) )
 
+    mmsMessages = []
+    if not os.path.isdir(args.mms_msg_dir):
+      print "skipping MMS import, no <MMS_MSG_DIR> for reading from"
+    elif not os.path.isdir(args.mms_parts_dir):
+      print "skipping MMS import, no <MMS_PARTS_DIR> to write attachments to"
+    else:
+      print "reading mms from " + args.mms_msg_dir
+      mmsMessages = readMMSFromMsgDir(args.mms_msg_dir, args.mms_parts_dir)
+      for mms in mmsMessages:
+        dirName = mms.getMsgDirName()
+        msgDir = args.mms_msg_dir + "/" + dirName
+        if not os.path.isdir(msgDir):
+          print "error reading MMS:\n" + mms
+          quit()
+
+        oldChecksum = mms.checksum
+        mms.generateChecksum()
+        newChecksum = mms.checksum
+
+        if oldChecksum != newChecksum:
+          print "mismatched checksum for MMS message"
+          print mms
+          quit()
+      print "read " + str(len(mmsMessages)) + " MMS messages"
+
     print "sorting all {0} texts by date".format( len(texts) )
     texts = sorted(texts, key=lambda text: text.date_millis)
 
@@ -104,7 +129,7 @@ def main():
       texts = texts[ (-args.limit) : ]
 
     print "Saving changes into Android DB (mmssms.db), "+str(args.db_file)
-    importMessagesToDb(texts, args.db_file)
+    importMessagesToDb(texts, mmsMessages, args.db_file)
   else:
     print "invalid <COMMAND>: " + args.COMMAND
     print "  (expected one of 'export-from-db' or 'import-to-db')"
@@ -332,6 +357,51 @@ def readTextsFromAndroid(db_file):
       print str(txt)
   return texts
 
+def readMMSFromMsgDir(mmsMsgDir, mms_parts_dir):
+  msgDirs = glob.glob(mmsMsgDir + "/*")
+
+  mmsMessages = []
+  keyValRegex = re.compile(r'^\s*(\w+)\s*=\s*"?(.*?)"?\s*$')
+  for msgDir in msgDirs:
+    msgInfo = msgDir + "/" + "info"
+    if not os.path.isfile(msgInfo):
+      print "missing \"info\" file for " + msgDir
+      quit()
+    f = open(msgInfo)
+    infoLines = f.read().splitlines()
+    mms = MMS(mms_parts_dir)
+    for infoLine in infoLines:
+      m = keyValRegex.match(infoLine)
+      if not m or len(m.groups()) != 2:
+        print "malformed info line: " + infoLine
+        quit()
+      key = m.group(1)
+      val = m.group(2)
+      if key == "from":
+        mms.from_number = val
+      elif key == "to":
+        mms.to_numbers.append(val)
+      elif key == "date":
+        mms.date_millis = long(val)
+        mms.date_format = time.strftime("%Y-%m-%d %H:%M:%S",
+          time.localtime(mms.date_millis/1000))
+      elif key == "date_sent":
+        mms.date_sent_millis = long(val)
+      elif key == "dir":
+        mms.direction = val
+      elif key == "subject":
+        mms.subject = val
+      elif key == "body":
+        mms.body = unescapeStr(val)
+      elif key == "att":
+        attName = val
+        filepath = msgDir + "/" + val
+        mms.attFiles[attName] = filepath
+      elif key == "checksum":
+        mms.checksum = val
+    mmsMessages.append(mms)
+  return mmsMessages
+
 def readMMSFromAndroid(db_file, mms_parts_dir):
   conn = sqlite3.connect(db_file)
   c = conn.cursor()
@@ -443,7 +513,7 @@ def getDbTableNames(db_file):
   cur.close()
   return names
 
-def importMessagesToDb(texts, db_file):
+def importMessagesToDb(texts, mmsMessages, db_file):
   conn = sqlite3.connect(db_file)
   c = conn.cursor()
 
