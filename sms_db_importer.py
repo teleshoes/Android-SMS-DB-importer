@@ -149,6 +149,17 @@ def escapeStr(s):
     .replace('&amp;', '&')
   )
 
+def unescapeStr(s):
+  return (s
+    .replace('&', '&amp;')
+    .replace('\\\\', '&backslash;')
+    .replace('\\n', '\n')
+    .replace('\\r', '\r')
+    .replace('\\"', '"')
+    .replace('&backslash;', '\\')
+    .replace('&amp;', '&')
+  )
+
 class MMS:
   def __init__(self, mms_parts_dir):
     self.mms_parts_dir = mms_parts_dir
@@ -277,16 +288,7 @@ def readTextsFromCSV(csvFile):
     sms_mms_type     = m.group(4)
     direction        = m.group(5)
     date_format      = m.group(6)
-    body             = (m.group(7)
-      .replace('&', '&amp;')
-      .replace('\\\\', '&backslash;')
-      .replace('\\n', '\n')
-      .replace('\\r', '\r')
-      .replace('\\"', '"')
-      .replace('&backslash;', '\\')
-      .replace('&amp;', '&')
-      .decode('utf-8')
-    )
+    body             = unescapeStr(m.group(7)).decode('utf-8')
 
     texts.append(Text( number
                      , date_millis
