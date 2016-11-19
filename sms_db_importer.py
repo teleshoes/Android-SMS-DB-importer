@@ -544,6 +544,10 @@ def importMessagesToDb(texts, mmsMessages, db_file):
   for txt in texts:
     txt.number = cleanNumber(txt.number)
 
+  allNumbers = set()
+  for txt in texts:
+    allNumbers.add(txt.number)
+
   contactIdByNumber = {}
   query = c.execute("SELECT _id, address FROM canonical_addresses;")
   for row in query:
@@ -552,19 +556,22 @@ def importMessagesToDb(texts, mmsMessages, db_file):
     number = cleanNumber(addr)
     contactIdByNumber[number] = contactId
 
-  for txt in texts:
+  for number in allNumbers:
     #add canonical addr and thread
-    if not txt.number in contactIdByNumber:
+    if not number in contactIdByNumber:
       c.execute(""
         + " INSERT INTO canonical_addresses (address)"
         + " VALUES (?)"
-        , [txt.number])
+        , [number])
       contactId = c.lastrowid
       c.execute(""
         + " INSERT INTO threads (recipient_ids)"
         + " VALUES (?)"
         , [contactId])
-      contactIdByNumber[txt.number] = contactId
+      contactIdByNumber[number] = contactId
+
+      if VERBOSE:
+        print "added new contact addr: " + str(number) + " => " + str(contactId)
 
   startTime = time.time()
   count=0
