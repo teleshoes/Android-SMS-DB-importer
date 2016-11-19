@@ -311,8 +311,10 @@ class MMS:
       return False
     else:
       print "invalid MMS direction: " + str(self.direction)
-  def __str__(self):
+  def __unicode__(self):
     return self.getInfo()
+  def __str__(self):
+    return unicode(self).encode('utf-8')
 
 class MMSPart:
   def __init__(self):
