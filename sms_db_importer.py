@@ -181,6 +181,13 @@ class Text:
       + "," + self.date_format
       + "," + "\"" + escapeStr(self.body) + "\""
     )
+  def isDirOut(self):
+    if self.direction == "OUT":
+      return True
+    elif self.direction == "INC":
+      return False
+    else:
+      print "invalid SMS direction: " + str(self.direction)
   def __unicode__(self):
     return self.toCsv()
   def __str__(self):
@@ -271,13 +278,10 @@ class MMS:
     dirName = ""
     dirName += str(self.date_millis)
     dirName += "_"
-    if self.direction == "INC":
-      dirName += str(self.from_number)
-    elif self.direction == "OUT":
+    if self.isDirOut():
       dirName += "-".join(self.to_numbers)
     else:
-      print "invalid direction: " + str(self.direction)
-      quit()
+      dirName += str(self.from_number)
     dirName += "_"
     dirName += str(self.direction)
     dirName += "_"
@@ -300,6 +304,13 @@ class MMS:
       info += "att=" + str(attName) + "\n"
     info += "checksum=" + str(self.checksum) + "\n"
     return info
+  def isDirOut(self):
+    if self.direction == "OUT":
+      return True
+    elif self.direction == "INC":
+      return False
+    else:
+      print "invalid MMS direction: " + str(self.direction)
   def __str__(self):
     return self.getInfo()
 
@@ -368,6 +379,9 @@ def readTextsFromAndroid(db_file):
       direction = "OUT"
     elif dir_type == 1:
       direction = "INC"
+    else:
+      print "INVALID SMS DIRECTION TYPE: " + str(dir_type)
+      quit()
     body = row[4]
     date_format = time.strftime("%Y-%m-%d %H:%M:%S",
       time.localtime(date_millis/1000))
@@ -508,7 +522,7 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
     elif dir_type_addr == 151:
       is_recipient_addr = True
     else:
-      print "INVALID ADDRESS DIRECTION: " + str(dir_type_addr)
+      print "INVALID MMS ADDRESS DIRECTION: " + str(dir_type_addr)
       quit()
 
     msg = msgs[msg_id]
@@ -607,13 +621,10 @@ def importMessagesToDb(texts, mmsMessages, db_file):
       print "updated thread: " + str(c.fetchone())
       print "adding entry to message db: " + str(txt)
 
-    if txt.direction == "OUT":
+    if txt.isDirOut():
       dir_type = 2
-    elif txt.direction == "INC":
-      dir_type = 1
     else:
-      print 'could not parse direction: ' + txt.direction
-      quit()
+      dir_type = 1
 
     #add message to sms table
     insertRow(c, "sms", { "address":     txt.number
