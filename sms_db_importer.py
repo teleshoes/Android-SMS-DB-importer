@@ -104,6 +104,7 @@ def main():
     else:
       print "reading mms from " + args.mms_msg_dir
       mmsMessages = readMMSFromMsgDir(args.mms_msg_dir, args.mms_parts_dir)
+      attFileCount = 0
       for mms in mmsMessages:
         dirName = mms.getMsgDirName()
         msgDir = args.mms_msg_dir + "/" + dirName
@@ -119,7 +120,19 @@ def main():
           print "mismatched checksum for MMS message"
           print mms
           quit()
+
+        for filename in list(mms.attFiles.keys()):
+          srcFile = mms.attFiles[filename]
+          destFile = args.mms_parts_dir + "/" + filename
+
+          if 0 != os.system("cp -ar --reflink '" + srcFile + "' '" + destFile + "'"):
+            print "failed to copy " + str(srcFile)
+            quit()
+          mms.attFiles[filename] = destFile
+          attFileCount += 1
+
       print "read " + str(len(mmsMessages)) + " MMS messages"
+      print "copied " + str(attFileCount) + " files to " + args.mms_parts_dir
 
     print "sorting all {0} texts by date".format( len(texts) )
     texts = sorted(texts, key=lambda text: text.date_millis)
