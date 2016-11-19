@@ -255,9 +255,9 @@ class MMS:
   def generateChecksum(self):
     md5 = hashlib.md5()
     if self.subject != None:
-      md5.update(self.subject)
+      md5.update(self.subject.encode("utf-8"))
     if self.body != None:
-      md5.update(self.body)
+      md5.update(self.body.encode("utf-8"))
     for attName in self.attFiles.keys():
       md5.update("\n" + attName + "\n")
       filepath = self.attFiles[attName]
@@ -414,9 +414,9 @@ def readMMSFromMsgDir(mmsMsgDir, mms_parts_dir):
       elif key == "dir":
         mms.direction = val
       elif key == "subject":
-        mms.subject = val
+        mms.subject = unescapeStr(val).decode('utf-8')
       elif key == "body":
-        mms.body = unescapeStr(val)
+        mms.body = unescapeStr(val).decode('utf-8')
       elif key == "att":
         attName = val
         filepath = msgDir + "/" + val
