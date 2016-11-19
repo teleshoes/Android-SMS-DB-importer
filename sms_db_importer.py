@@ -442,15 +442,33 @@ def getDbTableNames(db_file):
   return names
 
 def importMessagesToDb(texts, db_file):
-  #open resources
   conn = sqlite3.connect(db_file)
   c = conn.cursor()
 
-  #populate fast lookup table:
-  contactIdFromNumber = {}
-  query = c.execute('SELECT _id,address FROM canonical_addresses;')
+  for txt in texts:
+    txt.number = cleanNumber(txt.number)
+
+  contactIdByNumber = {}
+  query = c.execute("SELECT _id, address FROM canonical_addresses;")
   for row in query:
-    contactIdFromNumber[cleanNumber(row[1])] = row[0]
+    contactId = row[0]
+    addr = row[1]
+    number = cleanNumber(addr)
+    contactIdByNumber[number] = contactId
+
+  for txt in texts:
+    #add canonical addr and thread
+    if not txt.number in contactIdByNumber:
+      c.execute(""
+        + " INSERT INTO canonical_addresses (address)"
+        + " VALUES (?)"
+        , [txt.number])
+      contactId = c.lastrowid
+      c.execute(""
+        + " INSERT INTO threads (recipient_ids)"
+        + " VALUES (?)"
+        , [contactId])
+      contactIdByNumber[txt.number] = contactId
 
   #start the main loop through each message
   i=0
@@ -458,26 +476,36 @@ def importMessagesToDb(texts, db_file):
   lastCheckedSpeed=0
   starttime = time.time()
 
+
   for txt in texts:
-    clean_number = cleanNumber(txt.number)
+    contactId = contactIdByNumber[txt.number]
 
-    #add a new canonical_addresses lookup entry and thread item if it doesn't exist
-    if not clean_number in contactIdFromNumber:
-      c.execute( "INSERT INTO canonical_addresses (address) VALUES (?)", [txt.number])
-      contactIdFromNumber[clean_number] = c.lastrowid
-      c.execute( "INSERT INTO threads (recipient_ids) VALUES (?)", [contactIdFromNumber[clean_number]])
-    contact_id = contactIdFromNumber[clean_number]
-
-    #now update the conversation thread (happends with each new message)
-    c.execute( "UPDATE threads SET message_count=message_count + 1,snippet=?,'date'=? WHERE recipient_ids=? ", [txt.body,txt.date_millis,contact_id] )
-    c.execute( "SELECT _id FROM threads WHERE recipient_ids=? ", [contact_id] )
-    thread_id = c.fetchone()[0]
+    #now update the conversation thread (happens with each new message)
+    c.execute(""
+      + " UPDATE threads SET"
+      + "   message_count = message_count + 1,"
+      + "   snippet=?,"
+      + "   'date'=?"
+      + " WHERE recipient_ids=?"
+      , [ txt.body
+        , txt.date_millis
+        , contactId])
+    c.execute(""
+      + " SELECT _id"
+      + " FROM threads"
+      + " WHERE recipient_ids=?"
+      , [contactId])
+    threadId = c.fetchone()[0]
 
     if VERBOSE:
-      print "thread_id = "+ str(thread_id)
-      c.execute( "SELECT * FROM threads WHERE _id=?", [contact_id] )
+      print "thread_id = "+ str(threadId)
+      c.execute(""
+        + " SELECT *"
+        + " FROM threads"
+        + " WHERE _id=?"
+        , [contactId])
       print "updated thread: " + str(c.fetchone())
-      print "adding entry to message db: " + str([txt.number,txt.date_millis,txt.body,thread_id,txt.direction])
+      print "adding entry to message db: " + str(txt)
 
     if txt.direction == "OUT":
       dir_type = 2
@@ -488,15 +516,23 @@ def importMessagesToDb(texts, db_file):
       quit()
 
     #add message to sms table
-    c.execute( "INSERT INTO sms (address,date,date_sent,body,thread_id,read,type,seen) VALUES (?,?,?,?,?,?,?,?)", [
-       txt.number,txt.date_millis,txt.date_sent_millis,txt.body,thread_id,1,dir_type,1])
-
+    c.execute(""
+      + " INSERT INTO sms (address, date, date_sent, body, thread_id, type, read, seen)"
+      + " VALUES (?,?,?,?,?,?,?,?)"
+      , [ txt.number
+        , txt.date_millis
+        , txt.date_sent_millis
+        , txt.body
+        , threadId
+        , dir_type
+        , 1
+        , 1])
     #print status (with fancy speed calculation)
     recalculate_every = 100
     if i%recalculate_every == 0:
       lastSpeed = int(recalculate_every/(time.time() - lastCheckedSpeed))
       lastCheckedSpeed = time.time()
-    sys.stdout.write( "\rprocessed {0} entries, {1} convos, ({2} entries/sec)".format(i, len(contactIdFromNumber), lastSpeed ))
+    sys.stdout.write( "\rprocessed {0} entries, {1} convos, ({2} entries/sec)".format(i, len(contactIdByNumber), lastSpeed ))
     sys.stdout.flush()
     i += 1
 
