@@ -470,12 +470,12 @@ def importMessagesToDb(texts, db_file):
         , [contactId])
       contactIdByNumber[txt.number] = contactId
 
-  #start the main loop through each message
-  i=0
-  lastSpeed=0
-  lastCheckedSpeed=0
-  starttime = time.time()
-
+  startTime = time.time()
+  count=0
+  contactsSeen = set()
+  elapsedS = 0
+  smsPerSec = 0
+  statusMsg = ""
 
   for txt in texts:
     contactId = contactIdByNumber[txt.number]
@@ -527,16 +527,19 @@ def importMessagesToDb(texts, db_file):
         , dir_type
         , 1
         , 1])
-    #print status (with fancy speed calculation)
-    recalculate_every = 100
-    if i%recalculate_every == 0:
-      lastSpeed = int(recalculate_every/(time.time() - lastCheckedSpeed))
-      lastCheckedSpeed = time.time()
-    sys.stdout.write( "\rprocessed {0} entries, {1} convos, ({2} entries/sec)".format(i, len(contactIdByNumber), lastSpeed ))
-    sys.stdout.flush()
-    i += 1
 
-  print "\nfinished in {0} seconds (average {1}/second)".format((time.time() - starttime), int(i/(time.time() - starttime)))
+    count += 1
+    contactsSeen.add(contactId)
+    elapsedS = time.time() - startTime
+    smsPerSec = int(count / elapsedS + 0.5)
+    statusMsg = " {0:6d} SMS for {1:4d} contacts in {2:6.2f}s @ {3:5d} SMS/s".format(
+                  count, len(contactsSeen), elapsedS, smsPerSec)
+
+    if count % 100 == 0:
+      sys.stdout.write("\r" + statusMsg)
+      sys.stdout.flush()
+
+  print "\n\nfinished:\n" + statusMsg
 
   if VERBOSE:
     print "\n\nthreads: "
