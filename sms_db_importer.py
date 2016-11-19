@@ -133,8 +133,10 @@ class Text:
       + "," + self.date_format
       + "," + "\"" + escapeStr(self.body) + "\""
     )
-  def __str__(self):
+  def __unicode__(self):
     return self.toCsv()
+  def __str__(self):
+    return unicode(self).encode('utf-8')
 
 def escapeStr(s):
   return (s
