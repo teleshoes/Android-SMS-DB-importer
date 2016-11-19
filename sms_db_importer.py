@@ -569,12 +569,14 @@ def importMessagesToDb(texts, mmsMessages, db_file):
     allNumbers.add(txt.number)
 
   contactIdByNumber = {}
+  canonicalAddressByNumber = {}
   query = c.execute("SELECT _id, address FROM canonical_addresses;")
   for row in query:
     contactId = row[0]
     addr = row[1]
     number = cleanNumber(addr)
     contactIdByNumber[number] = contactId
+    canonicalAddressByNumber[number] = addr
 
   for number in allNumbers:
     #add canonical addr and thread
@@ -583,6 +585,7 @@ def importMessagesToDb(texts, mmsMessages, db_file):
       contactId = c.lastrowid
       insertRow(c, "threads", {"recipient_ids": contactId})
       contactIdByNumber[number] = contactId
+      canonicalAddressByNumber[number] = number
 
       if VERBOSE:
         print "added new contact addr: " + str(number) + " => " + str(contactId)
@@ -629,7 +632,7 @@ def importMessagesToDb(texts, mmsMessages, db_file):
       dir_type = 1
 
     #add message to sms table
-    insertRow(c, "sms", { "address":     txt.number
+    insertRow(c, "sms", { "address":     canonicalAddressByNumber[txt.number]
                         , "date":        txt.date_millis
                         , "date_sent":   txt.date_sent_millis
                         , "body":        txt.body
