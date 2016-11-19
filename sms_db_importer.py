@@ -211,7 +211,6 @@ def unescapeStr(s):
 class MMS:
   def __init__(self, mms_parts_dir):
     self.mms_parts_dir = mms_parts_dir
-    self.msg_id = None
     self.from_number = None
     self.to_numbers = []
     self.date_millis = None
@@ -306,7 +305,6 @@ class MMS:
 
 class MMSPart:
   def __init__(self):
-    self.msg_id = None
     self.part_type = None
     self.filename = None
     self.filepath = None
@@ -458,7 +456,6 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
       time.localtime(date_millis/1000))
 
     msg = MMS(mms_parts_dir)
-    msg.msg_id = msg_id
     msg.date_millis = date_millis
     msg.date_sent_millis = date_sent_millis
     msg.direction = direction
@@ -485,7 +482,6 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
       quit()
 
     part = MMSPart()
-    part.msg_id = msg_id
     part.part_type = part_type
     part.filename = filename
     part.filepath = filepath
