@@ -121,9 +121,14 @@ def main():
           print mms
           quit()
 
+        attFilePrefix = dirName
         for filename in list(mms.attFiles.keys()):
           srcFile = mms.attFiles[filename]
-          destFile = args.mms_parts_dir + "/" + filename
+          # prefix any file that doesnt start with PART_<MILLIS>
+          if re.match(r'^PART_\d{13}_', filename):
+            destFile = args.mms_parts_dir + "/" + filename
+          else:
+            destFile = args.mms_parts_dir + "/" + attFilePrefix + "_" + filename
 
           if os.path.isfile(destFile):
             if not filecmp.cmp(srcFile, destFile, shallow=False):
