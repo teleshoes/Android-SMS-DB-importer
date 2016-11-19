@@ -174,11 +174,11 @@ class MMS:
 
     self.parts = []
     self.body = None
-    self.attFiles = []
+    self.attFiles = {}
     self.checksum = None
   def parseParts(self):
     self.body = None
-    self.attFiles = []
+    self.attFiles = {}
     self.checksum = None
     for p in self.parts:
       if 'smil' in p.part_type:
@@ -194,7 +194,9 @@ class MMS:
         if "/" in filename:
           print "filename contains path sep '/': " + filename
           quit()
-        self.attFiles.append(filename)
+        attName = filename
+        localFilepath = self.mms_parts_dir + "/" + filename
+        self.attFiles[attName] = localFilepath
       else:
         print "invalid MMS part: " + str(p)
         quit()
@@ -207,9 +209,9 @@ class MMS:
       md5.update(self.subject)
     if self.body != None:
       md5.update(self.body)
-    for attFile in self.attFiles:
-      md5.update("\n" + attFile + "\n")
-      filepath = self.mms_parts_dir + "/" + attFile
+    for attName in self.attFiles.keys():
+      md5.update("\n" + attName + "\n")
+      filepath = self.attFiles[attName]
       if not os.path.isfile(filepath):
         print "missing att file: " + filepath
         quit()
@@ -246,8 +248,8 @@ class MMS:
     info += "date_sent=" + str(date_sent_millis) + "\n"
     info += "subject=\"" + escapeStr(str(self.subject)) + "\"\n"
     info += "body=\"" + escapeStr(str(self.body)) + "\"\n"
-    for attFile in self.attFiles:
-      info += "att=" + str(attFile) + "\n"
+    for attName in self.attFiles.keys():
+      info += "att=" + str(attName) + "\n"
     info += "checksum=" + str(self.checksum) + "\n"
     return info
   def __str__(self):
