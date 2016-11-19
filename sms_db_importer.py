@@ -242,7 +242,8 @@ class MMS:
         if "/" in filename:
           print "filename contains path sep '/': " + filename
           quit()
-        attName = filename
+        unprefixedFilename = re.sub(r'^\d+_([0-9+]+-)*[0-9+]+_(INC|OUT)_[0-9a-f]{32}_', '', filename)
+        attName = unprefixedFilename
         localFilepath = self.mms_parts_dir + "/" + filename
         self.attFiles[attName] = localFilepath
       else:
