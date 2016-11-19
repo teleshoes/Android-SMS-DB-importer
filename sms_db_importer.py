@@ -31,7 +31,7 @@ class UsageFormatter(argparse.HelpFormatter):
   def _split_lines(self, text, width):
     return text.splitlines()
 
-def sms_main():
+def main():
   parser = argparse.ArgumentParser(
     description='Import/export messages to/from android MMS/SMS database file.',
     formatter_class=UsageFormatter)
@@ -511,4 +511,4 @@ def importMessagesToDb(texts, db_file):
   conn.close()
 
 if __name__ == '__main__':
-  sms_main()
+  main()
