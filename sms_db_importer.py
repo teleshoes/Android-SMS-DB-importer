@@ -509,7 +509,7 @@ def importMessagesToDb(texts, db_file):
 
   if not NO_COMMIT:
     conn.commit()
-    print "changes saved to "+outfile
+    print "changes saved to " + db_file
 
   c.close()
   conn.close()
