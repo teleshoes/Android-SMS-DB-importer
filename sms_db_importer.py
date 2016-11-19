@@ -537,6 +537,14 @@ def getDbTableNames(db_file):
   cur.close()
   return names
 
+def insertRow(cursor, tableName, colVals):
+  (colNames, values) = zip(*colVals.items())
+  valuePlaceHolders = list(map(lambda val: "?", values))
+  cursor.execute( " INSERT INTO " + tableName
+                + " (" + ", ".join(colNames) + ")"
+                + " VALUES (" + ", ".join(valuePlaceHolders) + ")"
+                , values)
+
 def importMessagesToDb(texts, mmsMessages, db_file):
   conn = sqlite3.connect(db_file)
   c = conn.cursor()
@@ -559,15 +567,9 @@ def importMessagesToDb(texts, mmsMessages, db_file):
   for number in allNumbers:
     #add canonical addr and thread
     if not number in contactIdByNumber:
-      c.execute(""
-        + " INSERT INTO canonical_addresses (address)"
-        + " VALUES (?)"
-        , [number])
+      insertRow(c, "canonical_addresses", {"address": number})
       contactId = c.lastrowid
-      c.execute(""
-        + " INSERT INTO threads (recipient_ids)"
-        + " VALUES (?)"
-        , [contactId])
+      insertRow(c, "threads", {"recipient_ids": contactId})
       contactIdByNumber[number] = contactId
 
       if VERBOSE:
@@ -583,7 +585,6 @@ def importMessagesToDb(texts, mmsMessages, db_file):
   for txt in texts:
     contactId = contactIdByNumber[txt.number]
 
-    #now update the conversation thread (happens with each new message)
     c.execute(""
       + " UPDATE threads SET"
       + "   message_count = message_count + 1,"
@@ -619,17 +620,15 @@ def importMessagesToDb(texts, mmsMessages, db_file):
       quit()
 
     #add message to sms table
-    c.execute(""
-      + " INSERT INTO sms (address, date, date_sent, body, thread_id, type, read, seen)"
-      + " VALUES (?,?,?,?,?,?,?,?)"
-      , [ txt.number
-        , txt.date_millis
-        , txt.date_sent_millis
-        , txt.body
-        , threadId
-        , dir_type
-        , 1
-        , 1])
+    insertRow(c, "sms", { "address":     txt.number
+                        , "date":        txt.date_millis
+                        , "date_sent":   txt.date_sent_millis
+                        , "body":        txt.body
+                        , "thread_id":   threadId
+                        , "type":        dir_type
+                        , "read":        1
+                        , "seen":        1
+                        })
 
     count += 1
     contactsSeen.add(contactId)
