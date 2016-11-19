@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import argparse, codecs, re, sys, time, sqlite3, os.path, hashlib, glob
+import argparse, codecs, re, sys, time, sqlite3, os.path, hashlib, glob, filecmp
 
 VERBOSE = False
 NO_COMMIT = False
@@ -124,6 +124,11 @@ def main():
         for filename in list(mms.attFiles.keys()):
           srcFile = mms.attFiles[filename]
           destFile = args.mms_parts_dir + "/" + filename
+
+          if os.path.isfile(destFile):
+            if not filecmp.cmp(srcFile, destFile, shallow=False):
+              print "ERROR: attFile exists in parts dir already and is different"
+              quit()
 
           if 0 != os.system("cp -ar --reflink '" + srcFile + "' '" + destFile + "'"):
             print "failed to copy " + str(srcFile)
