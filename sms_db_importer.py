@@ -327,7 +327,7 @@ def readTextsFromAndroid(db_file):
       sms_mms_type, direction, date_format, body)
     texts.append(txt)
     if VERBOSE:
-      print txt.toCsv()
+      print str(txt)
   return texts
 
 def readMMSFromAndroid(db_file, mms_parts_dir):
