@@ -401,7 +401,7 @@ def readMMSFromMsgDir(mmsMsgDir, mms_parts_dir):
 
   mmsMessages = []
   keyValRegex = re.compile(r'^\s*(\w+)\s*=\s*"?(.*?)"?\s*$')
-  for msgDir in msgDirs:
+  for msgDir in sorted(msgDirs):
     msgInfo = msgDir + "/" + "info"
     if not os.path.isfile(msgInfo):
       print "missing \"info\" file for " + msgDir
