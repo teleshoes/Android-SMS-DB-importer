@@ -665,6 +665,20 @@ def importMessagesToDb(texts, mmsMessages, db_file):
                           , "text_only":   1 if len(mms.attFiles) == 0 else 0
                           })
       msgId = c.lastrowid
+
+      insertRow(c, "addr", { "msg_id":     msgId
+                           , "contact_id": None  #always null
+                           , "address":    canonicalAddressByNumber[mms.from_number]
+                           , "type":       137   #sender address
+                           , "charset":    3     #? - sometimes the character set is 106
+                           })
+      for toNumber in mms.to_numbers:
+        insertRow(c, "addr", { "msg_id":     msgId
+                             , "contact_id": None  #always null
+                             , "address":    canonicalAddressByNumber[toNumber]
+                             , "type":       151   #recipient address
+                             , "charset":    3     #? - sometimes the character set is 106
+                             })
   startTime = time.time()
   count=0
   contactsSeen = set()
