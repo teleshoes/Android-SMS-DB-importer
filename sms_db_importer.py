@@ -601,6 +601,33 @@ def importMessagesToDb(texts, mmsMessages, db_file):
       if VERBOSE:
         print "added new contact addr: " + str(number) + " => " + str(contactId)
 
+  for mms in mmsMessages:
+    numbers = []
+    if mms.isDirOut():
+      for toNumber in mms.to_numbers:
+        numbers.append(toNumber)
+    else:
+      numbers.append(mms.from_number)
+
+    for number in numbers:
+      contactId = contactIdByNumber[number]
+
+      c.execute(""
+        + " UPDATE threads SET"
+        + "   message_count = message_count + 1,"
+        + "   snippet=?,"
+        + "   'date'=?"
+        + " WHERE recipient_ids=?"
+        , [ mms.body
+          , mms.date_millis
+          , contactId])
+      c.execute(""
+        + " SELECT _id"
+        + " FROM threads"
+        + " WHERE recipient_ids=?"
+        , [contactId])
+      threadId = c.fetchone()[0]
+
   startTime = time.time()
   count=0
   contactsSeen = set()
