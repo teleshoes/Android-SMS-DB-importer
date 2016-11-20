@@ -564,10 +564,20 @@ def importMessagesToDb(texts, mmsMessages, db_file):
 
   for txt in texts:
     txt.number = cleanNumber(txt.number)
+  for mms in mmsMessages:
+    mms.from_number = cleanNumber(mms.from_number)
+    toNumbers = []
+    for toNumber in mms.to_numbers:
+      toNumbers.append(cleanNumber(toNumber))
+    mms.to_numbers = toNumbers
 
   allNumbers = set()
   for txt in texts:
     allNumbers.add(txt.number)
+  for mms in mmsMessages:
+    allNumbers.add(mms.from_number)
+    for toNumber in mms.to_numbers:
+      allNumbers.add(toNumber)
 
   contactIdByNumber = {}
   canonicalAddressByNumber = {}
