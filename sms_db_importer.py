@@ -628,6 +628,43 @@ def importMessagesToDb(texts, mmsMessages, db_file):
         , [contactId])
       threadId = c.fetchone()[0]
 
+      insertRow(c, "pdu", { "thread_id":   threadId
+                          , "date":        int(mms.date_millis / 1000)
+                          , "date_sent":   int(mms.date_sent_millis / 1000)
+                          , "msg_box":     1
+                          , "read":        1
+                          , "m_id":        None
+                          , "sub":         mms.subject
+                          , "sub_cs":      None
+                          , "ct_t":        "application/vnd.wap.multipart.related"
+                          , "ct_l":        None
+                          , "exp":         None
+                          , "m_cls":       None
+                          , "m_type":      128 if mms.isDirOut() else 132
+                          , "v":           18
+                          , "m_size":      None
+                          , "pri":         None
+                          , "rr":          None
+                          , "rpt_a":       None
+                          , "resp_st":     None
+                          , "st":          None
+                          , "tr_id":       None
+                          , "retr_st":     None if mms.isDirOut() else 128
+                          , "retr_txt":    None
+                          , "retr_txt_cs": None
+                          , "read_status": None
+                          , "ct_cls":      None
+                          , "resp_txt":    None
+                          , "d_tm":        None
+                          , "d_rpt":       None
+                          , "locked":      0
+                          , "sub_id":      1
+                          , "phone_id":    -1
+                          , "seen":        1
+                          , "creator":     None
+                          , "text_only":   1 if len(mms.attFiles) == 0 else 0
+                          })
+      msgId = c.lastrowid
   startTime = time.time()
   count=0
   contactsSeen = set()
