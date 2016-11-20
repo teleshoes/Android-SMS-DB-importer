@@ -732,6 +732,22 @@ def importMessagesToDb(texts, mmsMessages, db_file):
                              })
         nextContentId += 1
 
+      insertRow(c, "part", { "mid":   msgId
+                           , "seq":   0
+                           , "ct":    "text/plain"
+                           , "name":  "body.txt"
+                           , "chset": 3     #? - sometimes the character set is 106
+                           , "cd":    None
+                           , "fn":    None
+                           , "cid":   "<" + str(nextContentId) + ">"
+                           , "cl":    filename
+                           , "ctt_s": None
+                           , "ctt_t": None
+                           , "_data": None
+                           , "text":  mms.body
+                           })
+      nextContentId += 1
+
   startTime = time.time()
   count=0
   contactsSeen = set()
