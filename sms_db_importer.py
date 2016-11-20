@@ -3,6 +3,7 @@ import argparse, codecs, re, sys, time, sqlite3, os.path, hashlib, glob, filecmp
 
 VERBOSE = False
 NO_COMMIT = False
+REMOTE_MMS_PARTS_DIR = "/data/user/0/com.android.providers.telephony/app_parts"
 
 argHelp = { 'COMMAND':          ( 'import-to-db\n'
                                 + '  extract SMS from <CSV_FILE>\n'
@@ -15,7 +16,7 @@ argHelp = { 'COMMAND':          ( 'import-to-db\n'
           , '--csv-file':       ( 'CSV file to import-from/export-to')
           , '--db-file':        ( 'pre-existing mmssms.db file to import-to/export-from')
           , '--mms-parts-dir':  ( 'local copy of app_parts dir to import-to/expot-from\n'
-                                + '  /data/**/com.android.providers.telephony/app_parts/\n'
+                                + '  ' + REMOTE_MMS_PARTS_DIR + '\n'
                                 )
           , '--mms-msg-dir':    ( 'directory of MMS messages to import-from/export-to')
           , '--verbose':        ( 'verbose output, slower')
@@ -244,7 +245,7 @@ class MMS:
         self.body = p.body
       elif p.filepath != None:
         filename = p.filepath
-        filename = re.sub(r'/data/user/.*/com.android.providers.telephony/app_parts/', '', filename)
+        filename = re.sub('^' + REMOTE_MMS_PARTS_DIR + '/', '', filename)
         if "/" in filename:
           print "filename contains path sep '/': " + filename
           quit()
