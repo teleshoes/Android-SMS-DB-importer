@@ -493,10 +493,10 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
     filepath = row[3]
     body = row[4]
 
-    msg = msgs[msg_id]
-    if msg == None:
-      print "INVALID MESSAGE ID FOR PART: " + str(row)
+    if msg_id not in msgs:
+      print "INVALID MESSAGE ID FOR ADDRESS: " + str(row)
       quit(1)
+    msg = msgs[msg_id]
 
     part = MMSPart()
     part.part_type = part_type
@@ -528,10 +528,10 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
       print "INVALID MMS ADDRESS DIRECTION: " + str(dir_type_addr)
       quit(1)
 
-    msg = msgs[msg_id]
-    if msg == None:
+    if msg_id not in msgs:
       print "INVALID MESSAGE ID FOR ADDRESS: " + str(row)
       quit(1)
+    msg = msgs[msg_id]
 
     if is_sender_addr:
       if msg.from_number != None:
