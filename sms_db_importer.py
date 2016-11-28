@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import argparse, codecs, re, sys, time, sqlite3, os.path, hashlib, glob, filecmp
+import argparse, codecs, re, sys, time, sqlite3, os.path, hashlib, glob, filecmp, subprocess
 
 VERBOSE = False
 NO_COMMIT = False
@@ -839,8 +839,17 @@ def guessContentType(filename, filepath):
   elif re.match(r'^.*\.(3gp)$', filename, re.IGNORECASE):
     contentType = "video/3gpp"
   else:
-    print "unknown file type: " + filepath
-    quit(1)
+    mimeType = result = subprocess.check_output([ "file"
+                                                , "--mime"
+                                                , "--brief"
+                                                , filepath
+                                                ])
+    mimeType = re.sub(r';.*', '', mimeType)
+    if re.match(r'^[a-z0-9]+/[a-z0-9\-.]+$', mimeType):
+      return mimeType
+    else:
+      print "unknown file type: " + filepath
+      quit(1)
 
   return contentType
 
