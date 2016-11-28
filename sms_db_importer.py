@@ -226,6 +226,7 @@ class MMS:
     self.direction = None
     self.date_format = None
     self.subject = None
+    self.isNotificationInd = False
 
     self.parts = []
     self.body = None
@@ -461,8 +462,13 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
     if subject == None:
       subject = ""
 
+    isNotificationInd = False
+
     if dir_type_mms == 128:
       direction = "OUT"
+    elif dir_type_mms == 130:
+      direction = "INC"
+      isNotificationInd = True
     elif dir_type_mms == 132:
       direction = "INC"
     else:
@@ -478,6 +484,7 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
     msg.direction = direction
     msg.date_format = date_format
     msg.subject = subject
+    msg.isNotificationInd = isNotificationInd
 
     msgs[msg_id] = msg
 
@@ -543,7 +550,10 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
 
   mmsMessages = []
   for msg in msgs.values():
-    mmsMessages.append(msg)
+    if msg.isNotificationInd:
+      print "IGNORING NOTIFICATION_IND: " + str(msg)
+    else:
+      mmsMessages.append(msg)
 
   return mmsMessages
 
