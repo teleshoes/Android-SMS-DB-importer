@@ -72,10 +72,10 @@ def main():
     elif not os.path.isdir(args.mms_parts_dir):
       print "skipping MMS export, no <MMS_PARTS_DIR> to read attachments from"
     else:
-      msgs = readMMSFromAndroid(args.db_file, args.mms_parts_dir)
-      print "read " + str(len(msgs)) + " MMS messages from " + args.db_file
+      mmsMessages = readMMSFromAndroid(args.db_file, args.mms_parts_dir)
+      print "read " + str(len(mmsMessages)) + " MMS messages from " + args.db_file
       attFileCount = 0
-      for msg in msgs.values():
+      for msg in mmsMessages:
         dirName = msg.getMsgDirName()
         msgDir = args.mms_msg_dir + "/" + dirName
         if not os.path.isdir(msgDir):
@@ -541,7 +541,11 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
     elif is_recipient_addr:
       msg.to_numbers.append(cleanNumber(number))
 
-  return msgs
+  mmsMessages = []
+  for msg in msgs.values():
+    mmsMessages.append(msg)
+
+  return mmsMessages
 
 def getDbTableNames(db_file):
   cur = sqlite3.connect(db_file).cursor()
