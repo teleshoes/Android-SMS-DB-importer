@@ -700,35 +700,7 @@ def importMessagesToDb(texts, mmsMessages, db_file):
         filename = re.sub(r'^.*/', '', localFilepath)
         remoteFilepath = REMOTE_MMS_PARTS_DIR + "/" + filename
 
-        if re.match(r'^.*\.(jpg|jpeg)$', attName, re.IGNORECASE):
-          contentType = "image/jpeg"
-        elif re.match(r'^.*\.(png)$', attName, re.IGNORECASE):
-          contentType = "image/png"
-        elif re.match(r'^.*\.(gif)$', attName, re.IGNORECASE):
-          contentType = "image/gif"
-        elif re.match(r'^.*\.(wav)$', attName, re.IGNORECASE):
-          contentType = "audio/wav"
-        elif re.match(r'^.*\.(flac)$', attName, re.IGNORECASE):
-          contentType = "audio/flac"
-        elif re.match(r'^.*\.(ogg)$', attName, re.IGNORECASE):
-          contentType = "audio/ogg"
-        elif re.match(r'^.*\.(mp3|mp2|m2a|mpga)$', attName, re.IGNORECASE):
-          contentType = "audio/mpeg"
-        elif re.match(r'^.*\.(mp4)$', attName, re.IGNORECASE):
-          contentType = "video/mp4"
-        elif re.match(r'^.*\.(mkv)$', attName, re.IGNORECASE):
-          contentType = "video/x-matroska"
-        elif re.match(r'^.*\.(webm)$', attName, re.IGNORECASE):
-          contentType = "video/webm"
-        elif re.match(r'^.*\.(mpg|mpeg|m1v|m2v)$', attName, re.IGNORECASE):
-          contentType = "video/mpeg"
-        elif re.match(r'^.*\.(avi)$', attName, re.IGNORECASE):
-          contentType = "video/avi"
-        elif re.match(r'^.*\.(3gp)$', attName, re.IGNORECASE):
-          contentType = "video/3gpp"
-        else:
-          print "unknown file type: " + attName
-          quit(1)
+        contentType = guessContentType(attName, localFilepath)
 
         insertRow(c, "part", { "mid":   msgId
                              , "seq":   0
@@ -838,6 +810,39 @@ def importMessagesToDb(texts, mmsMessages, db_file):
 
   c.close()
   conn.close()
+
+def guessContentType(filename, filepath):
+  if re.match(r'^.*\.(jpg|jpeg)$', filename, re.IGNORECASE):
+    contentType = "image/jpeg"
+  elif re.match(r'^.*\.(png)$', filename, re.IGNORECASE):
+    contentType = "image/png"
+  elif re.match(r'^.*\.(gif)$', filename, re.IGNORECASE):
+    contentType = "image/gif"
+  elif re.match(r'^.*\.(wav)$', filename, re.IGNORECASE):
+    contentType = "audio/wav"
+  elif re.match(r'^.*\.(flac)$', filename, re.IGNORECASE):
+    contentType = "audio/flac"
+  elif re.match(r'^.*\.(ogg)$', filename, re.IGNORECASE):
+    contentType = "audio/ogg"
+  elif re.match(r'^.*\.(mp3|mp2|m2a|mpga)$', filename, re.IGNORECASE):
+    contentType = "audio/mpeg"
+  elif re.match(r'^.*\.(mp4)$', filename, re.IGNORECASE):
+    contentType = "video/mp4"
+  elif re.match(r'^.*\.(mkv)$', filename, re.IGNORECASE):
+    contentType = "video/x-matroska"
+  elif re.match(r'^.*\.(webm)$', filename, re.IGNORECASE):
+    contentType = "video/webm"
+  elif re.match(r'^.*\.(mpg|mpeg|m1v|m2v)$', filename, re.IGNORECASE):
+    contentType = "video/mpeg"
+  elif re.match(r'^.*\.(avi)$', filename, re.IGNORECASE):
+    contentType = "video/avi"
+  elif re.match(r'^.*\.(3gp)$', filename, re.IGNORECASE):
+    contentType = "video/3gpp"
+  else:
+    print "unknown file type: " + filepath
+    quit(1)
+
+  return contentType
 
 if __name__ == '__main__':
   main()
