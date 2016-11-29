@@ -83,9 +83,9 @@ def main():
         infoFile = open(msgDir + "/" + "info", 'w')
         infoFile.write(msg.getInfo())
         infoFile.close()
-        for attFile in msg.attFiles:
-          srcFile = args.mms_parts_dir + "/" + attFile
-          destFile = msgDir + "/" + attFile
+        for attName in msg.attFiles.keys():
+          srcFile = msg.attFiles[attName]
+          destFile = msgDir + "/" + attName
           if 0 != os.system("cp -ar --reflink '" + srcFile + "' '" + destFile + "'"):
             print "failed to copy " + str(srcFile)
             quit(1)
