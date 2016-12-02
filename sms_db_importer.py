@@ -83,7 +83,7 @@ def main():
         infoFile = codecs.open(msgDir + "/" + "info", 'w', 'utf-8')
         infoFile.write(msg.getInfo())
         infoFile.close()
-        for attName in msg.attFiles.keys():
+        for attName in sorted(msg.attFiles.keys()):
           srcFile = msg.attFiles[attName]
           destFile = msgDir + "/" + attName
           if 0 != os.system("cp -ar --reflink '" + srcFile + "' '" + destFile + "'"):
@@ -123,7 +123,7 @@ def main():
           quit(1)
 
         attFilePrefix = dirName
-        for filename in list(mms.attFiles.keys()):
+        for filename in sorted(list(mms.attFiles.keys())):
           srcFile = mms.attFiles[filename]
           # prefix any file that doesnt start with PART_<MILLIS>
           if re.match(r'^PART_\d{13}', filename):
@@ -266,7 +266,7 @@ class MMS:
       md5.update(self.subject.encode("utf-8"))
     if self.body != None:
       md5.update(self.body.encode("utf-8"))
-    for attName in self.attFiles.keys():
+    for attName in sorted(self.attFiles.keys()):
       md5.update("\n" + attName + "\n")
       filepath = self.attFiles[attName]
       if not os.path.isfile(filepath):
@@ -302,7 +302,7 @@ class MMS:
     info += "date_sent=" + str(date_sent_millis) + "\n"
     info += "subject=\"" + escapeStr(self.subject) + "\"\n"
     info += "body=\"" + escapeStr(self.body) + "\"\n"
-    for attName in self.attFiles.keys():
+    for attName in sorted(self.attFiles.keys()):
       info += "att=" + str(attName) + "\n"
     info += "checksum=" + str(self.checksum) + "\n"
     return info
@@ -695,7 +695,7 @@ def importMessagesToDb(texts, mmsMessages, db_file):
                              })
 
       nextContentId = 0
-      for attName in mms.attFiles.keys():
+      for attName in sorted(mms.attFiles.keys()):
         localFilepath = mms.attFiles[attName]
         filename = re.sub(r'^.*/', '', localFilepath)
         remoteFilepath = REMOTE_MMS_PARTS_DIR + "/" + filename
