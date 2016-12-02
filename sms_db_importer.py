@@ -263,9 +263,9 @@ class MMS:
   def generateChecksum(self):
     md5 = hashlib.md5()
     if self.subject != None:
-      md5.update(self.subject.encode("utf-8"))
+      md5.update(escapeStr(self.subject.encode("utf-8")))
     if self.body != None:
-      md5.update(self.body.encode("utf-8"))
+      md5.update(escapeStr(self.body.encode("utf-8")))
     for attName in sorted(self.attFiles.keys()):
       md5.update("\n" + attName + "\n")
       filepath = self.attFiles[attName]
