@@ -799,6 +799,24 @@ def importMessagesToDb(texts, mmsMessages, db_file):
 
   print "\n\nfinished:\n" + statusMsg
 
+  print "\n\nupdating dates on threads:\n"
+  c.execute(""
+    + " update threads set date="
+    + "   ifnull ("
+    + "     nullif ("
+    + "       (select max("
+    + "         ifnull(mms_date_millis, 0),"
+    + "         ifnull(sms_date_millis, 0))"
+    + "       from ( select max(pdu.date)*1000 as mms_date_millis"
+    + "              from pdu where pdu.thread_id = threads._id and pdu.date"
+    + "            ),"
+    + "            ( select max(sms.date) as sms_date_millis"
+    + "              from sms where sms.thread_id = threads._id"
+    + "            )"
+    + "       ), 0)"
+    + "     , threads.date)"
+    )
+
   if VERBOSE:
     print "\n\nthreads: "
     for row in c.execute('SELECT * FROM threads'):
