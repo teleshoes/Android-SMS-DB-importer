@@ -80,7 +80,7 @@ def main():
         msgDir = args.mms_msg_dir + "/" + dirName
         if not os.path.isdir(msgDir):
           os.mkdir(msgDir)
-        infoFile = open(msgDir + "/" + "info", 'w')
+        infoFile = codecs.open(msgDir + "/" + "info", 'w', 'utf-8')
         infoFile.write(msg.getInfo())
         infoFile.close()
         for attName in msg.attFiles.keys():
@@ -300,8 +300,8 @@ class MMS:
     info += "dir=" + str(self.direction) + "\n"
     info += "date=" + str(self.date_millis) + "\n"
     info += "date_sent=" + str(date_sent_millis) + "\n"
-    info += "subject=\"" + escapeStr(str(self.subject)) + "\"\n"
-    info += "body=\"" + escapeStr(str(self.body)) + "\"\n"
+    info += "subject=\"" + escapeStr(self.subject) + "\"\n"
+    info += "body=\"" + escapeStr(self.body) + "\"\n"
     for attName in self.attFiles.keys():
       info += "att=" + str(attName) + "\n"
     info += "checksum=" + str(self.checksum) + "\n"
