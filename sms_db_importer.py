@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import argparse
 import codecs
+from enum import Enum
 import filecmp
 import glob
 import hashlib
@@ -33,6 +34,9 @@ argHelp = { 'COMMAND':          ( 'import-to-db\n'
           , '--no-commit':      ( 'do not actually save changes, no SQL commit')
           , '--limit':          ( 'limit to the most recent <LIMIT> messages')
           }
+
+SMS_DIR = Enum('SMS_DIR', ['OUT', 'INC'])
+MMS_DIR = Enum('MMS_DIR', ['OUT', 'INC'])
 
 class UsageFormatter(argparse.HelpFormatter):
   def __init__(self, prog):
@@ -188,17 +192,24 @@ class Text:
       + "," + str(self.date_millis)
       + "," + str(date_sent_millis)
       + "," + self.sms_mms_type
-      + "," + self.direction
+      + "," + self.getDirectionStr()
       + "," + self.date_format
       + "," + "\"" + escapeStr(self.body) + "\""
     )
-  def isDirOut(self):
-    if self.direction == "OUT":
-      return True
-    elif self.direction == "INC":
-      return False
-    else:
+  def isOutgoing(self):
+    return self.isDir(SMS_DIR.OUT)
+  def isIncoming(self):
+    return self.isDir(SMS_DIR.INC)
+  def isDirection(self, smsDir):
+    self.assertDirectionValid()
+    return self.direction == smsDir
+  def getDirectionStr(self):
+    self.assertDirectionValid()
+    return self.direction.name
+  def assertDirectionValid(self):
+    if self.direction not in SMS_DIR:
       print "invalid SMS direction: " + str(self.direction)
+      quit(1)
   def __unicode__(self):
     return self.toCsv()
   def __str__(self):
@@ -260,7 +271,13 @@ class MMS:
         if "/" in filename:
           print "filename contains path sep '/': " + filename
           quit(1)
-        unprefixedFilename = re.sub(r'^\d+_([0-9+]+-)*[0-9+]+_(INC|OUT)_[0-9a-f]{32}_', '', filename)
+        prefixRegex = re.compile(''
+          + r'^\d+_'
+          + r'([0-9+]+-)*[0-9+]+_'
+          + r'(' + '|'.join(sorted(MMS_DIR.__members__.keys())) + r')_'
+          + r'[0-9a-f]{32}_'
+          )
+        unprefixedFilename = prefixRegex.sub('', filename)
         attName = unprefixedFilename
         localFilepath = self.mms_parts_dir + "/" + filename
         self.attFiles[attName] = localFilepath
@@ -290,12 +307,12 @@ class MMS:
     dirName = ""
     dirName += str(self.date_millis)
     dirName += "_"
-    if self.isDirOut():
+    if self.isOutgoing():
       dirName += "-".join(self.to_numbers)
-    else:
+    elif self.isIncoming():
       dirName += str(self.from_number)
     dirName += "_"
-    dirName += str(self.direction)
+    dirName += self.getDirectionStr()
     dirName += "_"
     dirName += str(self.checksum)
     return dirName
@@ -307,7 +324,7 @@ class MMS:
     info += "from=" + str(self.from_number) + "\n"
     for to_number in self.to_numbers:
       info += "to=" + str(to_number) + "\n"
-    info += "dir=" + str(self.direction) + "\n"
+    info += "dir=" + self.getDirectionStr() + "\n"
     info += "date=" + str(self.date_millis) + "\n"
     info += "date_sent=" + str(date_sent_millis) + "\n"
     info += "subject=\"" + escapeStr(self.subject) + "\"\n"
@@ -316,13 +333,20 @@ class MMS:
       info += "att=" + str(attName) + "\n"
     info += "checksum=" + str(self.checksum) + "\n"
     return info
-  def isDirOut(self):
-    if self.direction == "OUT":
-      return True
-    elif self.direction == "INC":
-      return False
-    else:
+  def isOutgoing(self):
+    return self.isDirection(MMS_DIR.OUT)
+  def isIncoming(self):
+    return self.isDirection(MMS_DIR.INC)
+  def isDirection(self, mmsDir):
+    self.assertDirectionValid()
+    return self.direction == mmsDir
+  def getDirectionStr(self):
+    self.assertDirectionValid()
+    return self.direction.name
+  def assertDirectionValid(self):
+    if self.direction not in MMS_DIR:
       print "invalid MMS direction: " + str(self.direction)
+      quit(1)
   def __unicode__(self):
     return self.getInfo()
   def __str__(self):
@@ -350,7 +374,15 @@ def readTextsFromCSV(csvFile):
     quit(1)
 
   texts = []
-  rowRegex = re.compile(r'([0-9+]+),(\d+),(\d+),(S|M),(INC|OUT),([^,]*),\"(.*)\"')
+  rowRegex = re.compile(''
+    + r'([0-9+]+),'
+    + r'(\d+),'
+    + r'(\d+),'
+    + r'(S|M),'
+    + r'(' + '|'.join(sorted(SMS_DIR.__members__.keys())) + r'),'
+    + r'([^,]*),'
+    + r'\"(.*)\"'
+    )
   for row in csvContents.splitlines():
     m = rowRegex.match(row)
     if not m or len(m.groups()) != 7:
@@ -360,7 +392,7 @@ def readTextsFromCSV(csvFile):
     date_millis      = m.group(2)
     date_sent_millis = m.group(3)
     sms_mms_type     = m.group(4)
-    direction        = m.group(5)
+    directionStr     = m.group(5)
     date_format      = m.group(6)
     body             = unescapeStr(m.group(7)).decode('utf-8')
 
@@ -368,7 +400,7 @@ def readTextsFromCSV(csvFile):
                      , date_millis
                      , date_sent_millis
                      , sms_mms_type
-                     , direction
+                     , SMS_DIR.__members__[directionStr]
                      , date_format
                      , body
                      ))
@@ -390,9 +422,9 @@ def readTextsFromAndroid(db_file):
     sms_mms_type = "S"
     dir_type = row[3]
     if dir_type == 2:
-      direction = "OUT"
+      direction = SMS_DIR.OUT
     elif dir_type == 1:
-      direction = "INC"
+      direction = SMS_DIR.INC
     else:
       print "INVALID SMS DIRECTION TYPE: " + str(dir_type)
       quit(1)
@@ -438,7 +470,10 @@ def readMMSFromMsgDir(mmsMsgDir, mms_parts_dir):
       elif key == "date_sent":
         mms.date_sent_millis = long(val)
       elif key == "dir":
-        mms.direction = val
+        if val not in MMS_DIR.__members__:
+          print "invalid MMS direction: " + str(val)
+          quit(1)
+        mms.direction = MMS_DIR.__members__[val]
       elif key == "subject":
         mms.subject = unescapeStr(val).decode('utf-8')
       elif key == "body":
@@ -475,12 +510,12 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
     isNotificationInd = False
 
     if dir_type_mms == 128:
-      direction = "OUT"
-    elif dir_type_mms == 130:
-      direction = "INC"
-      isNotificationInd = True
+      direction = MMS_DIR.OUT
     elif dir_type_mms == 132:
-      direction = "INC"
+      direction = MMS_DIR.INC
+    elif dir_type_mms == 130:
+      direction = MMS_DIR.INC
+      isNotificationInd = True
     else:
       print "INVALID MMS DIRECTION TYPE: " + str(dir_type_mms)
       quit(1)
@@ -627,10 +662,10 @@ def importMessagesToDb(texts, mmsMessages, db_file):
 
   for mms in mmsMessages:
     numbers = []
-    if mms.isDirOut():
+    if mms.isOutgoing():
       for toNumber in mms.to_numbers:
         numbers.append(toNumber)
-    else:
+    elif mms.isIncoming():
       numbers.append(mms.from_number)
 
     for number in numbers:
@@ -652,10 +687,10 @@ def importMessagesToDb(texts, mmsMessages, db_file):
         , [contactId])
       threadId = c.fetchone()[0]
 
-      if mms.isDirOut():
+      if mms.isDirection(MMS_DIR.OUT):
         m_type = 128
         retr_st = None
-      else:
+      elif mms.isDirection(MMS_DIR.INC):
         m_type = 132
         retr_st = 128
 
@@ -787,9 +822,9 @@ def importMessagesToDb(texts, mmsMessages, db_file):
       print "updated thread: " + str(c.fetchone())
       print "adding entry to message db: " + str(txt)
 
-    if txt.isDirOut():
+    if txt.isDirection(SMS_DIR.OUT):
       dir_type = 2
-    else:
+    elif txt.isDirection(SMS_DIR.INC):
       dir_type = 1
 
     #add message to sms table
