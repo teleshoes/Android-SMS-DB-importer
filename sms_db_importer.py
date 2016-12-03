@@ -642,6 +642,13 @@ def importMessagesToDb(texts, mmsMessages, db_file):
         , [contactId])
       threadId = c.fetchone()[0]
 
+      if mms.isDirOut():
+        m_type = 128
+        retr_st = None
+      else:
+        m_type = 132
+        retr_st = 128
+
       insertRow(c, "pdu", { "thread_id":   threadId
                           , "date":        int(mms.date_millis / 1000)
                           , "date_sent":   int(mms.date_sent_millis / 1000)
@@ -654,7 +661,7 @@ def importMessagesToDb(texts, mmsMessages, db_file):
                           , "ct_l":        None
                           , "exp":         None
                           , "m_cls":       None
-                          , "m_type":      128 if mms.isDirOut() else 132
+                          , "m_type":      m_type
                           , "v":           18
                           , "m_size":      None
                           , "pri":         None
@@ -663,7 +670,7 @@ def importMessagesToDb(texts, mmsMessages, db_file):
                           , "resp_st":     None
                           , "st":          None
                           , "tr_id":       None
-                          , "retr_st":     None if mms.isDirOut() else 128
+                          , "retr_st":     retr_st
                           , "retr_txt":    None
                           , "retr_txt_cs": None
                           , "read_status": None
