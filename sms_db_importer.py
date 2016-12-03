@@ -120,7 +120,7 @@ def main():
         dirName = mms.getMsgDirName()
         msgDir = args.mms_msg_dir + "/" + dirName
         if not os.path.isdir(msgDir):
-          print "error reading MMS:\n" + mms
+          print "error reading MMS(" + str(msgDir) + ":\n" + str(mms)
           quit(1)
 
         oldChecksum = mms.checksum
