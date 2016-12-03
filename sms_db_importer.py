@@ -1,5 +1,15 @@
 #!/usr/bin/python
-import argparse, codecs, re, sys, time, sqlite3, os.path, hashlib, glob, filecmp, subprocess
+import argparse
+import codecs
+import filecmp
+import glob
+import hashlib
+import os.path
+import re
+import sqlite3
+import subprocess
+import sys
+import time
 
 VERBOSE = False
 NO_COMMIT = False
