@@ -36,7 +36,7 @@ argHelp = { 'COMMAND':          ( 'import-to-db\n'
           }
 
 SMS_DIR = Enum('SMS_DIR', ['OUT', 'INC'])
-MMS_DIR = Enum('MMS_DIR', ['OUT', 'INC'])
+MMS_DIR = Enum('MMS_DIR', ['OUT', 'INC', 'NTF'])
 
 class UsageFormatter(argparse.HelpFormatter):
   def __init__(self, prog):
@@ -247,7 +247,6 @@ class MMS:
     self.direction = None
     self.date_format = None
     self.subject = None
-    self.isNotificationInd = False
 
     self.parts = []
     self.body = None
@@ -336,7 +335,7 @@ class MMS:
   def isOutgoing(self):
     return self.isDirection(MMS_DIR.OUT)
   def isIncoming(self):
-    return self.isDirection(MMS_DIR.INC)
+    return self.isDirection(MMS_DIR.INC) or self.isDirection(MMS_DIR.NTF)
   def isDirection(self, mmsDir):
     self.assertDirectionValid()
     return self.direction == mmsDir
@@ -507,15 +506,12 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
     if subject == None:
       subject = ""
 
-    isNotificationInd = False
-
     if dir_type_mms == 128:
       direction = MMS_DIR.OUT
     elif dir_type_mms == 132:
       direction = MMS_DIR.INC
     elif dir_type_mms == 130:
-      direction = MMS_DIR.INC
-      isNotificationInd = True
+      direction = MMS_DIR.NTF
     else:
       print "INVALID MMS DIRECTION TYPE: " + str(dir_type_mms)
       quit(1)
@@ -529,7 +525,6 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
     msg.direction = direction
     msg.date_format = date_format
     msg.subject = subject
-    msg.isNotificationInd = isNotificationInd
 
     msgs[msg_id] = msg
 
@@ -593,14 +588,7 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
     elif is_recipient_addr:
       msg.to_numbers.append(cleanNumber(number))
 
-  mmsMessages = []
-  for msg in msgs.values():
-    if msg.isNotificationInd:
-      print "IGNORING NOTIFICATION_IND: " + str(msg)
-    else:
-      mmsMessages.append(msg)
-
-  return mmsMessages
+  return msgs.values()
 
 def getDbTableNames(db_file):
   cur = sqlite3.connect(db_file).cursor()
@@ -693,6 +681,9 @@ def importMessagesToDb(texts, mmsMessages, db_file):
       elif mms.isDirection(MMS_DIR.INC):
         m_type = 132
         retr_st = 128
+      elif mms.isDirection(MMS_DIR.NTF):
+        m_type = 130
+        retr_st = None
 
       insertRow(c, "pdu", { "thread_id":   threadId
                           , "date":        int(mms.date_millis / 1000)
