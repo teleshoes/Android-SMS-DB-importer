@@ -541,7 +541,7 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
     body = row[4]
 
     if msg_id not in msgs:
-      print "INVALID MESSAGE ID FOR ADDRESS: " + str(row)
+      print "INVALID MESSAGE ID FOR MMS PART: " + str(row)
       quit(1)
     msg = msgs[msg_id]
 
