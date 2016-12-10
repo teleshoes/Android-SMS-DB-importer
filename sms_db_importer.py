@@ -359,6 +359,8 @@ class MMSPart:
     self.body = None
 
 def cleanNumber(number):
+  if number == None:
+    number = ''
   number = re.sub(r'[^+0-9]', '', number)
   number = re.sub(r'^\+?1(\d{10})$', '\\1', number)
   return number
