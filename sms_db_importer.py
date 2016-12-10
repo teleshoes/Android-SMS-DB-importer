@@ -540,6 +540,10 @@ def readMMSFromAndroid(db_file, mms_parts_dir):
     filepath = row[3]
     body = row[4]
 
+    #skip malformed SMIL, happens for NTF messages
+    if msg_id not in msgs and part_type == "application/smil":
+      continue
+
     if msg_id not in msgs:
       print "INVALID MESSAGE ID FOR MMS PART: " + str(row)
       quit(1)
