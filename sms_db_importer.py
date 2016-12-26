@@ -111,6 +111,14 @@ def main():
     texts = readTextsFromCSV(args.csv_file)
     print "finished in {0} seconds, {1} messages read".format( (time.time()-starttime), len(texts) )
 
+    print "sorting all {0} texts by date".format(len(texts))
+    texts = sorted(texts, key=lambda text: text.date_millis)
+
+    if args.limit > 0:
+      print "saving only the last {0} messages".format( args.limit )
+      texts = texts[ (-args.limit) : ]
+
+
     mmsMessages = []
     if not os.path.isdir(args.mms_msg_dir):
       print "skipping MMS import, no <MMS_MSG_DIR> for reading from"
@@ -158,13 +166,6 @@ def main():
 
       print "read " + str(len(mmsMessages)) + " MMS messages"
       print "copied " + str(attFileCount) + " files to " + args.mms_parts_dir
-
-    print "sorting all {0} texts by date".format( len(texts) )
-    texts = sorted(texts, key=lambda text: text.date_millis)
-
-    if args.limit > 0:
-      print "saving only the last {0} messages".format( args.limit )
-      texts = texts[ (-args.limit) : ]
 
     print "Saving changes into Android DB (mmssms.db), "+str(args.db_file)
     importMessagesToDb(texts, mmsMessages, args.db_file)
