@@ -14,7 +14,7 @@ import time
 
 VERBOSE = False
 NO_COMMIT = False
-REMOTE_MMS_PARTS_DIR = "/data/user/0/com.android.providers.telephony/app_parts"
+REMOTE_MMS_PARTS_DIR = "/data/user_de/0/com.android.providers.telephony/app_parts"
 REMOTE_MMS_PARTS_REGEX = r'/data/user\w*/\d+/com.android.providers.telephony/app_parts'
 
 argHelp = { 'COMMAND':          ( 'import-to-db\n'
