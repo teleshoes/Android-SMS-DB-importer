@@ -64,22 +64,21 @@ def main():
   VERBOSE = args.verbose
   NO_COMMIT = args.no_commit
 
-  if args.sms_csv_file == None:
-    parser.print_help()
-    print "\n--sms-csv-file is required"
-    quit(1)
   if args.db_file == None:
     parser.print_help()
     print "\n--db-file is required"
     quit(1)
 
   if args.COMMAND == "export-from-db":
-    texts = readTextsFromAndroid(args.db_file)
-    print "read " + str(len(texts)) + " SMS messages from " + args.db_file
-    f = codecs.open(args.sms_csv_file, 'w', 'utf-8')
-    for txt in texts:
-      f.write(txt.toCsv() + "\n")
-    f.close()
+    if args.sms_csv_file == None:
+      print "skipping SMS export, no <SMS_CSV_FILE> for writing to"
+    else:
+      texts = readTextsFromAndroid(args.db_file)
+      print "read " + str(len(texts)) + " SMS messages from " + args.db_file
+      f = codecs.open(args.sms_csv_file, 'w', 'utf-8')
+      for txt in texts:
+        f.write(txt.toCsv() + "\n")
+      f.close()
 
     if not os.path.isdir(args.mms_msg_dir):
       print "skipping MMS export, no <MMS_MSG_DIR> for writing to"
@@ -106,18 +105,21 @@ def main():
           attFileCount += 1
       print "copied " + str(attFileCount) + " files from " + args.mms_parts_dir
   elif args.COMMAND == "import-to-db":
-    print "Reading texts from CSV file:"
-    starttime = time.time()
-    texts = readTextsFromCSV(args.sms_csv_file)
-    print "finished in {0} seconds, {1} messages read".format( (time.time()-starttime), len(texts) )
+    texts = []
+    if args.sms_csv_file == None or not os.path.isfile(args.sms_csv_file):
+      print "skipping SMS import, no <SMS_CSV_FILE> for reading from"
+    else:
+      print "Reading texts from CSV file:"
+      starttime = time.time()
+      texts = readTextsFromCSV(args.sms_csv_file)
+      print "finished in {0} seconds, {1} messages read".format( (time.time()-starttime), len(texts) )
 
-    print "sorting all {0} texts by date".format(len(texts))
-    texts = sorted(texts, key=lambda text: text.date_millis)
+      print "sorting all {0} texts by date".format(len(texts))
+      texts = sorted(texts, key=lambda text: text.date_millis)
 
-    if args.limit > 0:
-      print "saving only the last {0} messages".format( args.limit )
-      texts = texts[ (-args.limit) : ]
-
+      if args.limit > 0:
+        print "saving only the last {0} messages".format( args.limit )
+        texts = texts[ (-args.limit) : ]
 
     mmsMessages = []
     if not os.path.isdir(args.mms_msg_dir):
