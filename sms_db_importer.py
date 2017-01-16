@@ -436,6 +436,9 @@ def readTextsFromAndroid(db_file):
     elif dir_type == 3: #MESSAGE_TYPE_DRAFT
       #do not backup drafts
       pass
+    elif dir_type == 5: #MESSAGE_TYPE_FAILED (failed to send)
+      #no message sent
+      pass
     else:
       error = True
 
