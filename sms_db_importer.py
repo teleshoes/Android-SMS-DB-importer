@@ -442,6 +442,8 @@ def readTextsFromAndroid(db_file):
     elif dir_type == 6: #MESSAGE_TYPE_QUEUED (sending later)
       #no message sent yet
       pass
+    elif dir_type == 0: #MESSAGE_TYPE_ALL
+      error = True
     else:
       error = True
 
