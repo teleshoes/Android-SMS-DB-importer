@@ -426,22 +426,29 @@ def readTextsFromAndroid(db_file):
     date_sent_millis = long(row[2])
     sms_mms_type = "S"
     dir_type = row[3]
-    if dir_type == 2:
+
+    error = False
+    direction = None
+    if dir_type == 2: #MESSAGE_TYPE_SENT
       direction = SMS_DIR.OUT
-    elif dir_type == 1:
+    elif dir_type == 1: #MESSAGE_TYPE_INBOX
       direction = SMS_DIR.INC
     else:
+      error = True
+
+    if error:
       print "INVALID SMS DIRECTION TYPE: " + str(dir_type)
       quit(1)
-    body = row[4]
-    date_format = time.strftime("%Y-%m-%d %H:%M:%S",
-      time.localtime(date_millis/1000))
+    elif direction != None:
+      body = row[4]
+      date_format = time.strftime("%Y-%m-%d %H:%M:%S",
+        time.localtime(date_millis/1000))
 
-    txt = Text(number, date_millis, date_sent_millis,
-      sms_mms_type, direction, date_format, body)
-    texts.append(txt)
-    if VERBOSE:
-      print str(txt)
+      txt = Text(number, date_millis, date_sent_millis,
+        sms_mms_type, direction, date_format, body)
+      texts.append(txt)
+      if VERBOSE:
+        print str(txt)
   return texts
 
 def readMMSFromMsgDir(mmsMsgDir, mms_parts_dir):
