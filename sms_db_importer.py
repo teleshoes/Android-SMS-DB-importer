@@ -433,6 +433,9 @@ def readTextsFromAndroid(db_file):
       direction = SMS_DIR.OUT
     elif dir_type == 1: #MESSAGE_TYPE_INBOX
       direction = SMS_DIR.INC
+    elif dir_type == 3: #MESSAGE_TYPE_DRAFT
+      #do not backup drafts
+      pass
     else:
       error = True
 
